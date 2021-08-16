@@ -1,0 +1,7 @@
+[package]
+name = "minecraft-compose"
+version = "0.1.0"
+authors = ["Dave Korhumel <dpk2442@gmail.com>"]
+edition = "2018"
+
+[dependencies]
