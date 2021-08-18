@@ -1,7 +1,8 @@
-use clap::{App, Arg};
+use clap::{App, Arg, SubCommand};
 
 mod config;
 mod logging;
+mod subcommands;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -30,6 +31,9 @@ fn main() {
                 .multiple(true)
                 .help("Prints additional output"),
         )
+        .subcommand(SubCommand::with_name("up").about("Creates and starts the server container"))
+        .subcommand(SubCommand::with_name("down").about("Stops and destroys the server container"))
+        .setting(clap::AppSettings::SubcommandRequired)
         .get_matches();
 
     let quiet = matches.is_present("quiet");
@@ -55,5 +59,10 @@ fn main() {
         }
     };
 
-    println!("Loaded config: {:?}", config);
+    let subcommands = subcommands::SubCommands {};
+    match matches.subcommand() {
+        ("up", Some(sub_args)) => subcommands.up(&config, sub_args),
+        ("down", Some(sub_args)) => subcommands.down(&config, sub_args),
+        _ => {}
+    }
 }
