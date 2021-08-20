@@ -11,7 +11,7 @@ impl log::Log for ConsoleLogger {
 
     fn log(&self, record: &Record) {
         let metadata = record.metadata();
-        if self.enabled(metadata) {
+        if metadata.target().starts_with("minecraft_compose") && self.enabled(metadata) {
             match metadata.level() {
                 Level::Error | Level::Warn => eprintln!("{}", record.args()),
                 _ => println!("{}", record.args()),
