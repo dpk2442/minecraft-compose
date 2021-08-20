@@ -19,13 +19,13 @@ config_defaults! {
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
-    name: String,
+    pub name: String,
 
     #[serde(default = "default_host")]
-    host: String,
+    pub host: String,
 
     #[serde(default = "default_port")]
-    port: i32,
+    pub port: i32,
 }
 
 pub fn load_config(file_path: &str) -> Result<Config, Box<dyn error::Error>> {

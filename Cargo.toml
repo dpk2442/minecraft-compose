@@ -12,3 +12,6 @@ log = { version = "0.4.14", features = ["std"] }
 serde = { version = "1.0.127", features = ["derive"] }
 tokio = { version = "1.10.0", features = ["full"] }
 toml = "0.5.8"
+
+[dev-dependencies]
+mockall = "0.10.2"
