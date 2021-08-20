@@ -5,7 +5,10 @@ authors = ["Dave Korhumel <dpk2442@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+bollard = "0.11"
 clap = "2.33.3"
+futures = "0.3.16"
 log = { version = "0.4.14", features = ["std"] }
 serde = { version = "1.0.127", features = ["derive"] }
+tokio = { version = "1.10.0", features = ["full"] }
 toml = "0.5.8"

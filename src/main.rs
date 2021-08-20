@@ -2,11 +2,13 @@ use clap::{App, Arg, SubCommand};
 
 mod config;
 mod logging;
+mod providers;
 mod subcommands;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let matches = App::new("MinecraftCompose")
         .about("Manage minecraft servers")
         .version(VERSION)
@@ -59,10 +61,36 @@ fn main() {
         }
     };
 
-    let subcommands = subcommands::SubCommands {};
+    if let Some(parent_dir) = std::path::Path::new(file_path).parent() {
+        log::trace!(
+            "Changing to config file directory: {}",
+            parent_dir.display()
+        );
+        match std::env::set_current_dir(parent_dir) {
+            Ok(_) => (),
+            Err(err) => {
+                log::error!("Unable to change to config file directory: {}", err);
+                std::process::exit(1);
+            }
+        }
+    }
+
+    log::debug!(
+        "Running from the directory {}",
+        std::env::current_dir().unwrap().display()
+    );
+
+    let subcommands = match subcommands::new_from_defaults() {
+        Ok(subcommands) => subcommands,
+        Err(_) => {
+            log::error!("Encountered an unexpected error");
+            std::process::exit(1);
+        }
+    };
+
     match matches.subcommand() {
         ("up", Some(sub_args)) => subcommands.up(&config, sub_args),
         ("down", Some(sub_args)) => subcommands.down(&config, sub_args),
-        _ => {}
-    }
+        _ => (),
+    };
 }
