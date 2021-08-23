@@ -39,6 +39,16 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
         );
     }
 
+    pub fn create(&self, config: &config::Config) {
+        if let Err(()) = self
+            .container_provider
+            .create_container(config, self.file_provider.get_data_path())
+        {
+            log::error!("Failed to created container");
+            return;
+        }
+    }
+
     pub fn start(&self, _config: &config::Config) {
         if let Err(()) = self.file_provider.create_data_folder() {
             log::error!("Failed to create data folder");
@@ -54,6 +64,8 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::eq;
+
     use super::*;
     use crate::providers::container::MockContainerProvider;
     use crate::providers::file::MockFileProvider;
@@ -94,6 +106,28 @@ mod tests {
             .returning(|| Ok("test version".to_owned()));
 
         subcommands.up(&config, &args);
+    }
+
+    #[test]
+    fn test_create() {
+        let mut subcommands = get_subcommands();
+        let config = get_config();
+        let path = std::path::PathBuf::new();
+        let path_clone = path.clone();
+
+        subcommands
+            .file_provider
+            .expect_get_data_path()
+            .times(1)
+            .return_const(path);
+
+        subcommands
+            .container_provider
+            .expect_create_container()
+            .with(eq(config.clone()), eq(path_clone))
+            .returning(|_, _| Ok(()));
+
+        subcommands.create(&config);
     }
 
     #[test]

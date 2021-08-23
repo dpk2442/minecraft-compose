@@ -17,7 +17,7 @@ config_defaults! {
     default_port -> i32: 25565;
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug, PartialEq)]
 pub struct Config {
     pub name: String,
 

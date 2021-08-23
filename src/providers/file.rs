@@ -5,6 +5,7 @@ use crate::providers::backends::filesystem::{self, FilesystemBackend, Filesystem
 
 #[cfg_attr(test, mockall::automock)]
 pub trait FileProvider {
+    fn get_data_path(&self) -> &path::PathBuf;
     fn create_data_folder(&self) -> Result<(), ()>;
     fn create_and_populate_server_properties(&self) -> Result<(), ()>;
 }
@@ -38,6 +39,10 @@ impl<T: FilesystemBackend> FileProviderImpl<T> {
 }
 
 impl<T: FilesystemBackend> FileProvider for FileProviderImpl<T> {
+    fn get_data_path(&self) -> &path::PathBuf {
+        &self.data_path
+    }
+
     fn create_data_folder(&self) -> Result<(), ()> {
         if !self.filesystem_backend.directory_exists(&self.data_path) {
             self.filesystem_backend.create_directory(&self.data_path)?;
