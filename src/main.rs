@@ -92,13 +92,13 @@ async fn main() {
         }
     };
 
-    match matches.subcommand() {
-        ("up", Some(sub_args)) => subcommands.up(&config, sub_args),
-        ("down", Some(sub_args)) => subcommands.down(&config, sub_args),
+    let _ = match matches.subcommand() {
+        ("up", Some(_)) => subcommands.up(&config),
+        ("down", Some(_)) => subcommands.down(&config),
         ("create", Some(_)) => subcommands.create(&config),
         ("destroy", Some(_)) => subcommands.destroy(&config),
         ("start", Some(_)) => subcommands.start(&config),
         ("stop", Some(_)) => subcommands.stop(&config),
-        _ => (),
+        _ => Ok(()),
     };
 }

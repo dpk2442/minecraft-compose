@@ -25,59 +25,63 @@ pub fn new_from_defaults() -> Result<
 impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileProvider>
     SubCommands<T1, T2>
 {
-    pub fn up(&self, config: &config::Config, args: &clap::ArgMatches<'a>) {
-        log::info!("Running up. config={:?}, args={:?}", config, args);
-        let version_result = self.container_provider.get_version();
-        log::info!("Docker version: {:?}", version_result);
+    pub fn up(&self, config: &config::Config) -> Result<(), ()> {
+        self.create(config)?;
+        self.start(config)
     }
 
-    pub fn down(&self, config: &config::Config, args: &clap::ArgMatches<'a>) {
-        log::info!("Running down. config={:?}, args={:?}", config, args);
-        log::info!(
-            "Docker version: {:?}",
-            self.container_provider.get_version()
-        );
+    pub fn down(&self, config: &config::Config) -> Result<(), ()> {
+        self.stop(config)?;
+        self.destroy(config)
     }
 
-    pub fn create(&self, config: &config::Config) {
+    pub fn create(&self, config: &config::Config) -> Result<(), ()> {
         if let Err(()) = self
             .container_provider
             .create_container(config, self.file_provider.get_data_path())
         {
             log::error!("Failed to create the container");
-            return;
+            return Err(());
         }
+
+        Ok(())
     }
 
-    pub fn destroy(&self, config: &config::Config) {
+    pub fn destroy(&self, config: &config::Config) -> Result<(), ()> {
         if let Err(()) = self.container_provider.delete_container(&config) {
             log::error!("Failed to delete the container");
-            return;
+            return Err(());
         }
+
+        Ok(())
     }
 
-    pub fn start(&self, config: &config::Config) {
+    pub fn start(&self, config: &config::Config) -> Result<(), ()> {
         if let Err(()) = self.file_provider.create_data_folder() {
             log::error!("Failed to create data folder");
-            return;
+            return Err(());
         }
 
         if let Err(()) = self.file_provider.create_and_populate_server_properties() {
             log::error!("Failed to create server.properties");
-            return;
+            return Err(());
         }
 
         if let Err(()) = self.container_provider.start_container(&config) {
             log::error!("Failed to start the container");
-            return;
+            return Err(());
         }
+
+        Ok(())
     }
 
-    pub fn stop(&self, config: &config::Config) {
+    pub fn stop(&self, config: &config::Config) -> Result<(), ()> {
         if let Err(()) = self.container_provider.stop_container(&config) {
             log::error!("Failed to start the container");
-            return;
+            return Err(());
         }
+
+        Ok(())
     }
 }
 
@@ -104,29 +108,6 @@ mod tests {
         }
     }
 
-    fn get_arg_matches<'a>() -> clap::ArgMatches<'a> {
-        clap::ArgMatches {
-            args: std::collections::HashMap::new(),
-            subcommand: None,
-            usage: None,
-        }
-    }
-
-    #[test]
-    fn test_up_calls_version() {
-        let mut subcommands = get_subcommands();
-        let config = get_config();
-        let args = get_arg_matches();
-
-        subcommands
-            .container_provider
-            .expect_get_version()
-            .times(1)
-            .returning(|| Ok("test version".to_owned()));
-
-        subcommands.up(&config, &args);
-    }
-
     #[test]
     fn test_create() {
         let mut subcommands = get_subcommands();
@@ -146,7 +127,7 @@ mod tests {
             .with(eq(config.clone()), eq(path_clone))
             .returning(|_, _| Ok(()));
 
-        subcommands.create(&config);
+        assert_eq!(Ok(()), subcommands.create(&config));
     }
 
     #[test]
@@ -161,7 +142,7 @@ mod tests {
             .times(1)
             .returning(|_| Ok(()));
 
-        subcommands.destroy(&config);
+        assert_eq!(Ok(()), subcommands.destroy(&config));
     }
 
     #[test]
@@ -188,7 +169,7 @@ mod tests {
             .times(1)
             .returning(|_| Ok(()));
 
-        subcommands.start(&config);
+        assert_eq!(Ok(()), subcommands.start(&config));
     }
 
     #[test]
@@ -203,6 +184,6 @@ mod tests {
             .times(1)
             .returning(|_| Ok(()));
 
-        subcommands.stop(&config);
+        assert_eq!(Ok(()), subcommands.stop(&config));
     }
 }

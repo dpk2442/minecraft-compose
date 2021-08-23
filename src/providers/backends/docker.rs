@@ -2,7 +2,6 @@ use bollard::container::{Config, CreateContainerOptions};
 
 #[cfg_attr(test, mockall::automock)]
 pub trait DockerBackend {
-    fn version(&self) -> Result<bollard::system::Version, bollard::errors::Error>;
     fn create_container(&self, name: &str, container_config: Config<String>) -> Result<(), ()>;
     fn delete_container(&self, name: &str) -> Result<(), ()>;
     fn start_container(&self, name: &str) -> Result<(), ()>;
@@ -23,10 +22,6 @@ pub fn new_from_defaults() -> Result<DockerBackendImpl, ()> {
 }
 
 impl DockerBackend for DockerBackendImpl {
-    fn version(&self) -> Result<bollard::system::Version, bollard::errors::Error> {
-        futures::executor::block_on(self.docker.version())
-    }
-
     fn create_container(&self, name: &str, container_config: Config<String>) -> Result<(), ()> {
         log::trace!("Creating container {}", name);
         match futures::executor::block_on(self.docker.create_container(
