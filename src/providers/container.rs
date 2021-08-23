@@ -46,7 +46,7 @@ impl<T: backends::docker::DockerBackend> ContainerProvider for ContainerProvider
         port_map.insert(
             "25565/tcp".to_owned(),
             Some(vec![PortBinding {
-                host_ip: Some("0.0.0.0".to_owned()),
+                host_ip: Some(config.host.to_owned()),
                 host_port: Some(config.port.to_string()),
             }]),
         );
