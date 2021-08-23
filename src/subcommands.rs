@@ -44,7 +44,14 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
             .container_provider
             .create_container(config, self.file_provider.get_data_path())
         {
-            log::error!("Failed to created container");
+            log::error!("Failed to create the container");
+            return;
+        }
+    }
+
+    pub fn destroy(&self, config: &config::Config) {
+        if let Err(()) = self.container_provider.delete_container(&config) {
+            log::error!("Failed to delete the container");
             return;
         }
     }
@@ -128,6 +135,21 @@ mod tests {
             .returning(|_, _| Ok(()));
 
         subcommands.create(&config);
+    }
+
+    #[test]
+    fn test_destroy() {
+        let mut subcommands = get_subcommands();
+        let config = get_config();
+
+        subcommands
+            .container_provider
+            .expect_delete_container()
+            .with(eq(config.clone()))
+            .times(1)
+            .returning(|_| Ok(()));
+
+        subcommands.destroy(&config);
     }
 
     #[test]

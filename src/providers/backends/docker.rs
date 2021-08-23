@@ -4,6 +4,7 @@ use bollard::container::{Config, CreateContainerOptions};
 pub trait DockerBackend {
     fn version(&self) -> Result<bollard::system::Version, bollard::errors::Error>;
     fn create_container(&self, name: &str, container_config: Config<String>) -> Result<(), ()>;
+    fn delete_container(&self, name: &str) -> Result<(), ()>;
 }
 
 pub struct DockerBackendImpl {
@@ -25,6 +26,7 @@ impl DockerBackend for DockerBackendImpl {
     }
 
     fn create_container(&self, name: &str, container_config: Config<String>) -> Result<(), ()> {
+        log::trace!("Creating container {}", name);
         match futures::executor::block_on(self.docker.create_container(
             Some(CreateContainerOptions { name: name }),
             container_config,
@@ -40,5 +42,13 @@ impl DockerBackend for DockerBackendImpl {
                 Err(())
             }
         }
+    }
+
+    fn delete_container(&self, name: &str) -> Result<(), ()> {
+        log::trace!("Deleting container {}", name);
+        futures::executor::block_on(self.docker.remove_container(name, None)).or_else(|err| {
+            log::trace!("Unable to delete container {}: {}", name, err);
+            Err(())
+        })
     }
 }

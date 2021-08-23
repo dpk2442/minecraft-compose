@@ -9,6 +9,7 @@ use crate::providers::backends;
 pub trait ContainerProvider {
     fn get_version(&self) -> Result<String, String>;
     fn create_container(&self, config: &Config, data_path: &PathBuf) -> Result<(), ()>;
+    fn delete_container(&self, config: &Config) -> Result<(), ()>;
 }
 
 pub struct ContainerProviderImpl<T: backends::docker::DockerBackend> {
@@ -70,10 +71,16 @@ impl<T: backends::docker::DockerBackend> ContainerProvider for ContainerProvider
             },
         )
     }
+
+    fn delete_container(&self, config: &Config) -> Result<(), ()> {
+        self.docker.delete_container(&config.name)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::eq;
+
     use super::*;
     use crate::config;
     use crate::providers::backends::docker::MockDockerBackend;
@@ -144,5 +151,20 @@ mod tests {
             Ok(()),
             container_provider.create_container(&config, &data_path)
         );
+    }
+
+    #[test]
+    fn test_delete_container() {
+        let mut container_provider = get_container_provider();
+        let config = get_config();
+
+        container_provider
+            .docker
+            .expect_delete_container()
+            .with(eq("name"))
+            .times(1)
+            .returning(|_| Ok(()));
+
+        assert_eq!(Ok(()), container_provider.delete_container(&config));
     }
 }
