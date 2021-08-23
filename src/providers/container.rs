@@ -10,6 +10,8 @@ pub trait ContainerProvider {
     fn get_version(&self) -> Result<String, String>;
     fn create_container(&self, config: &Config, data_path: &PathBuf) -> Result<(), ()>;
     fn delete_container(&self, config: &Config) -> Result<(), ()>;
+    fn start_container(&self, config: &Config) -> Result<(), ()>;
+    fn stop_container(&self, config: &Config) -> Result<(), ()>;
 }
 
 pub struct ContainerProviderImpl<T: backends::docker::DockerBackend> {
@@ -74,6 +76,14 @@ impl<T: backends::docker::DockerBackend> ContainerProvider for ContainerProvider
 
     fn delete_container(&self, config: &Config) -> Result<(), ()> {
         self.docker.delete_container(&config.name)
+    }
+
+    fn start_container(&self, config: &Config) -> Result<(), ()> {
+        self.docker.start_container(&config.name)
+    }
+
+    fn stop_container(&self, config: &Config) -> Result<(), ()> {
+        self.docker.stop_container(&config.name)
     }
 }
 
@@ -166,5 +176,35 @@ mod tests {
             .returning(|_| Ok(()));
 
         assert_eq!(Ok(()), container_provider.delete_container(&config));
+    }
+
+    #[test]
+    fn test_start_container() {
+        let mut container_provider = get_container_provider();
+        let config = get_config();
+
+        container_provider
+            .docker
+            .expect_start_container()
+            .with(eq("name"))
+            .times(1)
+            .returning(|_| Ok(()));
+
+        assert_eq!(Ok(()), container_provider.start_container(&config));
+    }
+
+    #[test]
+    fn test_stop_container() {
+        let mut container_provider = get_container_provider();
+        let config = get_config();
+
+        container_provider
+            .docker
+            .expect_stop_container()
+            .with(eq("name"))
+            .times(1)
+            .returning(|_| Ok(()));
+
+        assert_eq!(Ok(()), container_provider.stop_container(&config));
     }
 }

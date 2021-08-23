@@ -38,6 +38,7 @@ async fn main() {
         .subcommand(SubCommand::with_name("create").about("Creates the server container"))
         .subcommand(SubCommand::with_name("destroy").about("Destroys the server container"))
         .subcommand(SubCommand::with_name("start").about("Starts the server container"))
+        .subcommand(SubCommand::with_name("stop").about("Stops the server container"))
         .setting(clap::AppSettings::SubcommandRequired)
         .get_matches();
 
@@ -97,6 +98,7 @@ async fn main() {
         ("create", Some(_)) => subcommands.create(&config),
         ("destroy", Some(_)) => subcommands.destroy(&config),
         ("start", Some(_)) => subcommands.start(&config),
+        ("stop", Some(_)) => subcommands.stop(&config),
         _ => (),
     };
 }

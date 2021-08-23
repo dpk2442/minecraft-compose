@@ -5,6 +5,8 @@ pub trait DockerBackend {
     fn version(&self) -> Result<bollard::system::Version, bollard::errors::Error>;
     fn create_container(&self, name: &str, container_config: Config<String>) -> Result<(), ()>;
     fn delete_container(&self, name: &str) -> Result<(), ()>;
+    fn start_container(&self, name: &str) -> Result<(), ()>;
+    fn stop_container(&self, name: &str) -> Result<(), ()>;
 }
 
 pub struct DockerBackendImpl {
@@ -48,6 +50,24 @@ impl DockerBackend for DockerBackendImpl {
         log::trace!("Deleting container {}", name);
         futures::executor::block_on(self.docker.remove_container(name, None)).or_else(|err| {
             log::trace!("Unable to delete container {}: {}", name, err);
+            Err(())
+        })
+    }
+
+    fn start_container(&self, name: &str) -> Result<(), ()> {
+        log::trace!("Starting container {}", name);
+        futures::executor::block_on(self.docker.start_container::<String>(name, None)).or_else(
+            |err| {
+                log::trace!("Unable to start container {}: {}", name, err);
+                Err(())
+            },
+        )
+    }
+
+    fn stop_container(&self, name: &str) -> Result<(), ()> {
+        log::trace!("Stopping container {}", name);
+        futures::executor::block_on(self.docker.stop_container(name, None)).or_else(|err| {
+            log::trace!("Unable to start container {}: {}", name, err);
             Err(())
         })
     }

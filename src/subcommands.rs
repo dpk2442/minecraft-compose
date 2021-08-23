@@ -56,7 +56,7 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
         }
     }
 
-    pub fn start(&self, _config: &config::Config) {
+    pub fn start(&self, config: &config::Config) {
         if let Err(()) = self.file_provider.create_data_folder() {
             log::error!("Failed to create data folder");
             return;
@@ -64,6 +64,18 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
 
         if let Err(()) = self.file_provider.create_and_populate_server_properties() {
             log::error!("Failed to create server.properties");
+            return;
+        }
+
+        if let Err(()) = self.container_provider.start_container(&config) {
+            log::error!("Failed to start the container");
+            return;
+        }
+    }
+
+    pub fn stop(&self, config: &config::Config) {
+        if let Err(()) = self.container_provider.stop_container(&config) {
+            log::error!("Failed to start the container");
             return;
         }
     }
@@ -169,6 +181,28 @@ mod tests {
             .times(1)
             .returning(|| Ok(()));
 
+        subcommands
+            .container_provider
+            .expect_start_container()
+            .with(eq(config.clone()))
+            .times(1)
+            .returning(|_| Ok(()));
+
         subcommands.start(&config);
+    }
+
+    #[test]
+    fn test_stop() {
+        let mut subcommands = get_subcommands();
+        let config = get_config();
+
+        subcommands
+            .container_provider
+            .expect_stop_container()
+            .with(eq(config.clone()))
+            .times(1)
+            .returning(|_| Ok(()));
+
+        subcommands.stop(&config);
     }
 }
