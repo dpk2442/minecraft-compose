@@ -3,6 +3,7 @@ use std::path;
 
 #[cfg_attr(test, mockall::automock)]
 pub trait FilesystemBackend {
+    fn canonicalize_path(&self, path: &path::PathBuf) -> Result<path::PathBuf, ()>;
     fn directory_exists(&self, directory_path: &path::PathBuf) -> bool;
     fn create_directory(&self, directory_path: &path::PathBuf) -> Result<(), ()>;
     fn file_exists(&self, file_path: &path::PathBuf) -> bool;
@@ -13,6 +14,13 @@ pub trait FilesystemBackend {
 pub struct FilesystemBackendImpl {}
 
 impl FilesystemBackend for FilesystemBackendImpl {
+    fn canonicalize_path(&self, path: &path::PathBuf) -> Result<path::PathBuf, ()> {
+        std::fs::canonicalize(path).or_else(|err| {
+            log::trace!("Unable to canonicalize path {}: {}", path.display(), err);
+            Err(())
+        })
+    }
+
     fn directory_exists(&self, directory_path: &path::PathBuf) -> bool {
         directory_path.is_dir()
     }

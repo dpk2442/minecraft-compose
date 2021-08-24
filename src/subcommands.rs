@@ -36,10 +36,12 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
     }
 
     pub fn create(&self, config: &config::Config) -> Result<(), ()> {
-        if let Err(()) = self
-            .container_provider
-            .create_container(config, self.file_provider.get_data_path())
-        {
+        let data_path = self.file_provider.get_data_path().or_else(|_| {
+            log::error!("Failed to get the data path");
+            Err(())
+        })?;
+
+        if let Err(()) = self.container_provider.create_container(config, &data_path) {
             log::error!("Failed to create the container");
             return Err(());
         }
@@ -152,7 +154,7 @@ mod tests {
             .file_provider
             .expect_get_data_path()
             .times(1)
-            .return_const(path);
+            .return_const(Ok(path));
 
         subcommands
             .container_provider
