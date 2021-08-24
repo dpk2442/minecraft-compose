@@ -135,6 +135,9 @@ mod tests {
             name: "name".to_owned(),
             host: "0.0.0.0".to_owned(),
             port: 25565,
+            server: config::Server::Vanilla(config::VanillaServer {
+                version: "1.17.1".to_owned(),
+            }),
         }
     }
 

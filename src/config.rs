@@ -26,6 +26,20 @@ pub struct Config {
 
     #[serde(default = "default_port")]
     pub port: i32,
+
+    pub server: Server,
+}
+
+#[derive(Clone, Deserialize, Debug, PartialEq)]
+#[serde(tag = "type")]
+pub enum Server {
+    #[serde(alias = "vanilla")]
+    Vanilla(VanillaServer),
+}
+
+#[derive(Clone, Deserialize, Debug, PartialEq)]
+pub struct VanillaServer {
+    pub version: String,
 }
 
 pub fn load_config(file_path: &str) -> Result<Config, Box<dyn error::Error>> {

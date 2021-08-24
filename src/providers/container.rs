@@ -5,7 +5,7 @@ use bollard::models::{
 };
 use std::path::PathBuf;
 
-use crate::config::Config;
+use crate::config::{self, Config};
 use crate::providers::backends;
 
 #[derive(Debug, PartialEq)]
@@ -55,15 +55,21 @@ impl<T: backends::docker::DockerBackend> ContainerProvider for ContainerProvider
             }]),
         );
 
+        let mut env = vec![String::from("EULA=true")];
+        match &config.server {
+            config::Server::Vanilla(server_config) => {
+                env.append(&mut vec![
+                    String::from("TYPE=VANILLA"),
+                    format!("VERSION={}", server_config.version),
+                ]);
+            }
+        }
+
         self.docker.create_container(
             &config.name,
             ContainerConfig {
                 image: Some("itzg/minecraft-server".to_owned()),
-                env: Some(vec![
-                    String::from("TYPE=VANILLA"),
-                    String::from("VERSION=1.17.1"),
-                    String::from("EULA=true"),
-                ]),
+                env: Some(env),
                 host_config: Some(HostConfig {
                     binds: Some(vec![format!("{}:/data", data_path)]),
                     port_bindings: Some(port_map),
@@ -131,6 +137,9 @@ mod tests {
             name: "name".to_owned(),
             host: "0.0.0.0".to_owned(),
             port: 25565,
+            server: config::Server::Vanilla(config::VanillaServer {
+                version: "1.17.1".to_owned(),
+            }),
         }
     }
 
@@ -148,9 +157,9 @@ mod tests {
                     && container_config.image == Some("itzg/minecraft-server".to_owned())
                     && container_config.env
                         == Some(vec![
+                            String::from("EULA=true"),
                             String::from("TYPE=VANILLA"),
                             String::from("VERSION=1.17.1"),
-                            String::from("EULA=true"),
                         ])
                     && match &container_config.host_config {
                         None => false,
