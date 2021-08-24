@@ -57,7 +57,9 @@ async fn main() {
         _ => (),
     }
 
-    let file_path = matches.value_of("file").unwrap_or("./mcc.toml");
+    let file_path = matches
+        .value_of("file")
+        .unwrap_or("./minecraft-compose.toml");
     let config = match config::load_config(file_path) {
         Ok(config) => config,
         Err(err) => {
