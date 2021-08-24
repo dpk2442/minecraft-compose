@@ -83,6 +83,32 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
 
         Ok(())
     }
+
+    pub fn status(&self, config: &config::Config) -> Result<(), ()> {
+        match self.container_provider.get_container_status(&config) {
+            Ok(status) => {
+                match status {
+                    providers::container::ContainerState::Unknown => {
+                        log::info!("The state of the container is unkown");
+                    }
+                    providers::container::ContainerState::NotFound => {
+                        log::info!("The container does not exist");
+                    }
+                    providers::container::ContainerState::Running => {
+                        log::info!("The container is currently running");
+                    }
+                    providers::container::ContainerState::Stopped => {
+                        log::info!("The container is currently stopped");
+                    }
+                };
+                Ok(())
+            }
+            Err(()) => {
+                log::error!("Failed to get container status");
+                Err(())
+            }
+        }
+    }
 }
 
 #[cfg(test)]

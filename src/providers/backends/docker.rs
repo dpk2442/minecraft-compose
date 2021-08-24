@@ -1,4 +1,12 @@
 use bollard::container::{Config, CreateContainerOptions};
+use bollard::errors;
+use bollard::models::ContainerInspectResponse;
+
+#[derive(Debug)]
+pub enum InspectResult {
+    Ok(ContainerInspectResponse),
+    NotFound,
+}
 
 #[cfg_attr(test, mockall::automock)]
 pub trait DockerBackend {
@@ -6,6 +14,7 @@ pub trait DockerBackend {
     fn delete_container(&self, name: &str) -> Result<(), ()>;
     fn start_container(&self, name: &str) -> Result<(), ()>;
     fn stop_container(&self, name: &str) -> Result<(), ()>;
+    fn inspect_container(&self, name: &str) -> Result<InspectResult, ()>;
 }
 
 pub struct DockerBackendImpl {
@@ -65,5 +74,19 @@ impl DockerBackend for DockerBackendImpl {
             log::trace!("Unable to start container {}: {}", name, err);
             Err(())
         })
+    }
+
+    fn inspect_container(&self, name: &str) -> Result<InspectResult, ()> {
+        log::trace!("Inspecting container {}", name);
+        match futures::executor::block_on(self.docker.inspect_container(name, None)) {
+            Ok(result) => Ok(InspectResult::Ok(result)),
+            Err(errors::Error::DockerResponseNotFoundError { message: _ }) => {
+                Ok(InspectResult::NotFound)
+            }
+            Err(err) => {
+                log::trace!("Unable to inspect container {}: {}", name, err);
+                Err(())
+            }
+        }
     }
 }

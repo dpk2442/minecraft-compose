@@ -1,9 +1,20 @@
 use bollard::container::Config as ContainerConfig;
-use bollard::models::{HostConfig, PortBinding, PortMap, RestartPolicy, RestartPolicyNameEnum};
+use bollard::models::{
+    ContainerStateStatusEnum, HostConfig, PortBinding, PortMap, RestartPolicy,
+    RestartPolicyNameEnum,
+};
 use std::path::PathBuf;
 
 use crate::config::Config;
 use crate::providers::backends;
+
+#[derive(Debug, PartialEq)]
+pub enum ContainerState {
+    Unknown,
+    NotFound,
+    Stopped,
+    Running,
+}
 
 #[cfg_attr(test, mockall::automock)]
 pub trait ContainerProvider {
@@ -11,6 +22,7 @@ pub trait ContainerProvider {
     fn delete_container(&self, config: &Config) -> Result<(), ()>;
     fn start_container(&self, config: &Config) -> Result<(), ()>;
     fn stop_container(&self, config: &Config) -> Result<(), ()>;
+    fn get_container_status(&self, config: &Config) -> Result<ContainerState, ()>;
 }
 
 pub struct ContainerProviderImpl<T: backends::docker::DockerBackend> {
@@ -76,6 +88,27 @@ impl<T: backends::docker::DockerBackend> ContainerProvider for ContainerProvider
 
     fn stop_container(&self, config: &Config) -> Result<(), ()> {
         self.docker.stop_container(&config.name)
+    }
+
+    fn get_container_status(&self, config: &Config) -> Result<ContainerState, ()> {
+        match self.docker.inspect_container(&config.name) {
+            Ok(backends::docker::InspectResult::Ok(result)) => match result.state {
+                None => Ok(ContainerState::Unknown),
+                Some(state) => match state.status {
+                    Some(ContainerStateStatusEnum::CREATED)
+                    | Some(ContainerStateStatusEnum::EMPTY)
+                    | Some(ContainerStateStatusEnum::EXITED)
+                    | Some(ContainerStateStatusEnum::DEAD)
+                    | Some(ContainerStateStatusEnum::PAUSED) => Ok(ContainerState::Stopped),
+                    Some(ContainerStateStatusEnum::RUNNING)
+                    | Some(ContainerStateStatusEnum::RESTARTING) => Ok(ContainerState::Running),
+                    Some(ContainerStateStatusEnum::REMOVING) => Ok(ContainerState::NotFound),
+                    None => Ok(ContainerState::Unknown),
+                },
+            },
+            Ok(backends::docker::InspectResult::NotFound) => Ok(ContainerState::NotFound),
+            Err(()) => Err(()),
+        }
     }
 }
 
@@ -198,5 +231,93 @@ mod tests {
             .returning(|_| Ok(()));
 
         assert_eq!(Ok(()), container_provider.stop_container(&config));
+    }
+
+    mod test_get_container_status {
+        use bollard::models::{ContainerInspectResponse, ContainerState as DockerContainerState};
+
+        use super::*;
+
+        #[test]
+        fn inspect_result_not_found() {
+            let mut container_provider = get_container_provider();
+            let config = get_config();
+
+            container_provider
+                .docker
+                .expect_inspect_container()
+                .with(eq("name"))
+                .times(1)
+                .returning(|_| Ok(backends::docker::InspectResult::NotFound));
+
+            assert_eq!(
+                Ok(ContainerState::NotFound),
+                container_provider.get_container_status(&config)
+            );
+        }
+
+        #[test]
+        fn none_state() {
+            let mut container_provider = get_container_provider();
+            let config = get_config();
+
+            container_provider
+                .docker
+                .expect_inspect_container()
+                .with(eq("name"))
+                .times(1)
+                .returning(|_| {
+                    Ok(backends::docker::InspectResult::Ok(
+                        std::default::Default::default(),
+                    ))
+                });
+
+            assert_eq!(
+                Ok(ContainerState::Unknown),
+                container_provider.get_container_status(&config)
+            );
+        }
+
+        macro_rules! get_container_status_tests {
+            ($($name:ident: $docker_status:expr, $result_state:expr;)*) => {
+            $(
+                #[test]
+                fn $name() {
+                    let mut container_provider = get_container_provider();
+                    let config = get_config();
+
+                    container_provider
+                        .docker
+                        .expect_inspect_container()
+                        .with(eq("name"))
+                        .times(1)
+                        .returning(|_| Ok(backends::docker::InspectResult::Ok(ContainerInspectResponse {
+                            state: Some(DockerContainerState {
+                                status: $docker_status,
+                                ..std::default::Default::default()
+                            }),
+                            ..std::default::Default::default()
+                        })));
+
+                    assert_eq!(
+                        Ok($result_state),
+                        container_provider.get_container_status(&config)
+                    );
+                }
+            )*
+            }
+        }
+
+        get_container_status_tests! {
+            status_none: None, ContainerState::Unknown;
+            status_created: Some(ContainerStateStatusEnum::CREATED), ContainerState::Stopped;
+            status_empty: Some(ContainerStateStatusEnum::EMPTY), ContainerState::Stopped;
+            status_exited: Some(ContainerStateStatusEnum::EXITED), ContainerState::Stopped;
+            status_dead: Some(ContainerStateStatusEnum::DEAD), ContainerState::Stopped;
+            status_paused: Some(ContainerStateStatusEnum::PAUSED), ContainerState::Stopped;
+            status_running: Some(ContainerStateStatusEnum::RUNNING), ContainerState::Running;
+            status_restarting: Some(ContainerStateStatusEnum::RESTARTING), ContainerState::Running;
+            status_removing: Some(ContainerStateStatusEnum::REMOVING), ContainerState::NotFound;
+        }
     }
 }
