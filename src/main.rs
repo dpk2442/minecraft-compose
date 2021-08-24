@@ -80,7 +80,7 @@ async fn main() {
         }
     }
 
-    log::debug!(
+    log::trace!(
         "Running from the directory {}",
         std::env::current_dir().unwrap().display()
     );

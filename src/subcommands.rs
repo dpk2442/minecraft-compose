@@ -44,6 +44,7 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
             return Err(());
         }
 
+        log::info!("Created the server container {}", config.name);
         Ok(())
     }
 
@@ -53,6 +54,7 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
             return Err(());
         }
 
+        log::info!("Destroyed the server container {}", config.name);
         Ok(())
     }
 
@@ -72,6 +74,7 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
             return Err(());
         }
 
+        log::info!("Started the server container {}", config.name);
         Ok(())
     }
 
@@ -81,6 +84,7 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
             return Err(());
         }
 
+        log::info!("Stopped the server container {}", config.name);
         Ok(())
     }
 

@@ -27,9 +27,8 @@ fn get_level(quiet: bool, verbosity: u64) -> Level {
         Level::Error
     } else {
         match verbosity {
-            0 => Level::Warn,
-            1 => Level::Info,
-            2 => Level::Debug,
+            0 => Level::Info,
+            1 => Level::Debug,
             _ => Level::Trace,
         }
     }
@@ -60,9 +59,9 @@ mod tests {
 
     get_level_tests! {
         get_level_quiet: (true, 0, Level::Error),
-        get_level_no_args: (false, 0, Level::Warn),
-        get_level_v: (false, 1, Level::Info),
-        get_level_vv: (false, 2, Level::Debug),
+        get_level_no_args: (false, 0, Level::Info),
+        get_level_v: (false, 1, Level::Debug),
+        get_level_vv: (false, 2, Level::Trace),
         get_level_vvv: (false, 3, Level::Trace),
     }
 }
