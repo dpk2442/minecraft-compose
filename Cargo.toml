@@ -9,6 +9,8 @@ bollard = "0.11"
 clap = "2.33.3"
 futures = "0.3.16"
 log = { version = "0.4.14", features = ["std"] }
+rcon = "0.5.1"
+rustyline = "9.0.0"
 serde = { version = "1.0.127", features = ["derive"] }
 tokio = { version = "1.10.0", features = ["full"] }
 toml = "0.5.8"

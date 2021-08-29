@@ -4,26 +4,34 @@ use crate::providers;
 pub struct SubCommands<
     T1: providers::container::ContainerProvider,
     T2: providers::file::FileProvider,
+    T3: providers::rcon::RconProvider,
 > {
     container_provider: T1,
     file_provider: T2,
+    rcon_provider: T3,
 }
 
 pub fn new_from_defaults() -> Result<
     SubCommands<
         providers::container::ContainerProviderImpl<providers::backends::docker::DockerBackendImpl>,
         providers::file::FileProviderImpl<providers::backends::filesystem::FilesystemBackendImpl>,
+        providers::rcon::RconProviderImpl,
     >,
     (),
 > {
     Ok(SubCommands {
         container_provider: providers::container::new_from_defaults()?,
         file_provider: providers::file::new_from_defaults(),
+        rcon_provider: providers::rcon::new_from_defaults(),
     })
 }
 
-impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileProvider>
-    SubCommands<T1, T2>
+impl<
+        'a,
+        T1: providers::container::ContainerProvider,
+        T2: providers::file::FileProvider,
+        T3: providers::rcon::RconProvider,
+    > SubCommands<T1, T2, T3>
 {
     pub fn up(&self, config: &config::Config) -> Result<(), ()> {
         self.create(config)?;
@@ -117,7 +125,7 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
     }
 
     pub fn console(&self, config: &config::Config) -> Result<(), ()> {
-        let rcon_address = self
+        let (rcon_host, rcon_port) = self
             .container_provider
             .get_container_rcon_address(&config)
             .or_else(|_| {
@@ -125,7 +133,12 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
                 return Err(());
             })?;
 
-        println!("rcon address: {:?}", rcon_address);
+        self.rcon_provider
+            .run_interactive_rcon_session(&config, &rcon_host, &rcon_port)
+            .or_else(|_| {
+                log::error!("Failed to establish interactive rcon session");
+                return Err(());
+            })?;
 
         Ok(())
     }
@@ -138,11 +151,13 @@ mod tests {
     use super::*;
     use crate::providers::container::MockContainerProvider;
     use crate::providers::file::MockFileProvider;
+    use crate::providers::rcon::MockRconProvider;
 
-    fn get_subcommands() -> SubCommands<MockContainerProvider, MockFileProvider> {
+    fn get_subcommands() -> SubCommands<MockContainerProvider, MockFileProvider, MockRconProvider> {
         SubCommands {
             container_provider: MockContainerProvider::new(),
             file_provider: MockFileProvider::new(),
+            rcon_provider: MockRconProvider::new(),
         }
     }
 
@@ -234,5 +249,27 @@ mod tests {
             .returning(|_| Ok(()));
 
         assert_eq!(Ok(()), subcommands.stop(&config));
+    }
+
+    #[test]
+    fn test_console() {
+        let mut subcommands = get_subcommands();
+        let config = get_config();
+
+        subcommands
+            .container_provider
+            .expect_get_container_rcon_address()
+            .with(eq(config.clone()))
+            .times(1)
+            .returning(|_| Ok(("host".to_owned(), "port".to_owned())));
+
+        subcommands
+            .rcon_provider
+            .expect_run_interactive_rcon_session()
+            .with(eq(config.clone()), eq("host"), eq("port"))
+            .times(1)
+            .returning(|_, _, _| Ok(()));
+
+        assert_eq!(Ok(()), subcommands.console(&config));
     }
 }
