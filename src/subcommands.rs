@@ -115,6 +115,20 @@ impl<'a, T1: providers::container::ContainerProvider, T2: providers::file::FileP
             }
         }
     }
+
+    pub fn console(&self, config: &config::Config) -> Result<(), ()> {
+        let rcon_address = self
+            .container_provider
+            .get_container_rcon_address(&config)
+            .or_else(|_| {
+                log::error!("Failed to get rcon address");
+                return Err(());
+            })?;
+
+        println!("rcon address: {:?}", rcon_address);
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

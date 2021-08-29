@@ -3,6 +3,7 @@ use bollard::models::{
     ContainerStateStatusEnum, HostConfig, PortBinding, PortMap, RestartPolicy,
     RestartPolicyNameEnum,
 };
+use bollard::service;
 use std::path::PathBuf;
 
 use crate::config::{self, Config};
@@ -26,6 +27,7 @@ pub trait ContainerProvider {
     fn start_container(&self, config: &Config) -> Result<(), ()>;
     fn stop_container(&self, config: &Config) -> Result<(), ()>;
     fn get_container_status(&self, config: &Config) -> Result<ContainerState, ()>;
+    fn get_container_rcon_address(&self, config: &Config) -> Result<(String, String), ()>;
 }
 
 pub struct ContainerProviderImpl<T: backends::docker::DockerBackend> {
@@ -55,6 +57,13 @@ impl<T: backends::docker::DockerBackend> ContainerProvider for ContainerProvider
             Some(vec![PortBinding {
                 host_ip: Some(config.host.to_owned()),
                 host_port: Some(config.port.to_string()),
+            }]),
+        );
+        port_map.insert(
+            "25575/tcp".to_owned(),
+            Some(vec![PortBinding {
+                host_ip: Some("127.0.0.1".to_owned()),
+                host_port: None,
             }]),
         );
 
@@ -121,6 +130,30 @@ impl<T: backends::docker::DockerBackend> ContainerProvider for ContainerProvider
             Err(()) => Err(()),
         }
     }
+
+    fn get_container_rcon_address(&self, config: &Config) -> Result<(String, String), ()> {
+        match self.docker.inspect_container(&config.name) {
+            Ok(backends::docker::InspectResult::Ok(service::ContainerInspectResponse {
+                network_settings:
+                    Some(service::NetworkSettings {
+                        ports: Some(ports), ..
+                    }),
+                ..
+            })) => match ports.get("25575/tcp") {
+                Some(Some(bindings)) => {
+                    if bindings.len() != 1 {
+                        return Err(());
+                    }
+                    Ok((
+                        bindings[0].host_ip.as_ref().unwrap().to_owned(),
+                        bindings[0].host_port.as_ref().unwrap().to_owned(),
+                    ))
+                }
+                _ => Err(()),
+            },
+            _ => Err(()),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -185,13 +218,22 @@ mod tests {
                                 && match &host_config.port_bindings {
                                     None => false,
                                     Some(port_bindings) => {
-                                        port_bindings.len() == 1
+                                        port_bindings.len() == 2
                                             && match port_bindings.get("25565/tcp") {
                                                 None => false,
                                                 Some(port) => {
                                                     port == &Some(vec![PortBinding {
                                                         host_ip: Some("0.0.0.0".to_owned()),
                                                         host_port: Some("25565".to_owned()),
+                                                    }])
+                                                }
+                                            }
+                                            && match port_bindings.get("25575/tcp") {
+                                                None => false,
+                                                Some(port) => {
+                                                    port == &Some(vec![PortBinding {
+                                                        host_ip: Some("127.0.0.1".to_owned()),
+                                                        host_port: None,
                                                     }])
                                                 }
                                             }
@@ -339,6 +381,88 @@ mod tests {
             status_running: Some(ContainerStateStatusEnum::RUNNING), ContainerState::Running;
             status_restarting: Some(ContainerStateStatusEnum::RESTARTING), ContainerState::Running;
             status_removing: Some(ContainerStateStatusEnum::REMOVING), ContainerState::NotFound;
+        }
+    }
+
+    mod test_get_rcon_address {
+        use std::collections::HashMap;
+
+        use super::*;
+        use bollard::service::PortBinding;
+
+        fn build_ports_map(include_binding: bool) -> HashMap<String, Option<Vec<PortBinding>>> {
+            let mut ports_map: std::collections::HashMap<
+                String,
+                Option<Vec<bollard::service::PortBinding>>,
+            > = std::collections::HashMap::new();
+
+            if include_binding {
+                ports_map.insert(
+                    "25575/tcp".to_owned(),
+                    Some(vec![bollard::service::PortBinding {
+                        host_ip: Some("host".to_owned()),
+                        host_port: Some("port".to_owned()),
+                    }]),
+                );
+            }
+
+            ports_map
+        }
+
+        #[test]
+        fn success() {
+            let mut container_provider = get_container_provider();
+            let config = get_config();
+
+            container_provider
+                .docker
+                .expect_inspect_container()
+                .with(eq("name"))
+                .times(1)
+                .returning(|_| {
+                    Ok(backends::docker::InspectResult::Ok(
+                        bollard::models::ContainerInspectResponse {
+                            network_settings: Some(service::NetworkSettings {
+                                ports: Some(build_ports_map(true)),
+                                ..std::default::Default::default()
+                            }),
+                            ..std::default::Default::default()
+                        },
+                    ))
+                });
+
+            assert_eq!(
+                Ok(("host".to_owned(), "port".to_owned())),
+                container_provider.get_container_rcon_address(&config)
+            );
+        }
+
+        #[test]
+        fn incorrect_binding_count() {
+            let mut container_provider = get_container_provider();
+            let config = get_config();
+
+            container_provider
+                .docker
+                .expect_inspect_container()
+                .with(eq("name"))
+                .times(1)
+                .returning(|_| {
+                    Ok(backends::docker::InspectResult::Ok(
+                        bollard::models::ContainerInspectResponse {
+                            network_settings: Some(service::NetworkSettings {
+                                ports: Some(build_ports_map(false)),
+                                ..std::default::Default::default()
+                            }),
+                            ..std::default::Default::default()
+                        },
+                    ))
+                });
+
+            assert_eq!(
+                Err(()),
+                container_provider.get_container_rcon_address(&config)
+            );
         }
     }
 }
