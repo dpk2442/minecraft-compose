@@ -10,6 +10,7 @@ pub enum InspectResult {
 
 #[cfg_attr(test, mockall::automock)]
 pub trait DockerBackend {
+    fn download_image(&self, image: &str, tag: &str) -> Result<(), ()>;
     fn create_container(&self, name: &str, container_config: Config<String>) -> Result<(), ()>;
     fn delete_container(&self, name: &str) -> Result<(), ()>;
     fn start_container(&self, name: &str) -> Result<(), ()>;
@@ -31,6 +32,30 @@ pub fn new_from_defaults() -> Result<DockerBackendImpl, ()> {
 }
 
 impl DockerBackend for DockerBackendImpl {
+    fn download_image(&self, image: &str, tag: &str) -> Result<(), ()> {
+        log::trace!("Downloading image {}:{}", image, tag);
+
+        for item in futures::executor::block_on_stream(self.docker.create_image(
+            Some(bollard::image::CreateImageOptions {
+                from_image: image.to_owned(),
+                tag: tag.to_owned(),
+                ..std::default::Default::default()
+            }),
+            None,
+            None,
+        )) {
+            match item {
+                Ok(_) => Ok(()),
+                Err(err) => {
+                    log::trace!("Unable to download image {}:{}: {}", image, tag, err);
+                    Err(())
+                }
+            }?;
+        }
+
+        Ok(())
+    }
+
     fn create_container(&self, name: &str, container_config: Config<String>) -> Result<(), ()> {
         log::trace!("Creating container {}", name);
         match futures::executor::block_on(self.docker.create_container(

@@ -8,6 +8,9 @@ use std::path::PathBuf;
 use crate::config::{self, Config};
 use crate::providers::backends;
 
+const IMAGE_NAME: &str = "itzg/minecraft-server";
+const IMAGE_TAG: &str = "latest";
+
 #[derive(Debug, PartialEq)]
 pub enum ContainerState {
     Unknown,
@@ -65,10 +68,12 @@ impl<T: backends::docker::DockerBackend> ContainerProvider for ContainerProvider
             }
         }
 
+        self.docker.download_image(IMAGE_NAME, IMAGE_TAG)?;
+
         self.docker.create_container(
             &config.name,
             ContainerConfig {
-                image: Some("itzg/minecraft-server".to_owned()),
+                image: Some(format!("{}:{}", IMAGE_NAME, IMAGE_TAG)),
                 env: Some(env),
                 host_config: Some(HostConfig {
                     binds: Some(vec![format!("{}:/data", data_path)]),
@@ -151,10 +156,17 @@ mod tests {
 
         container_provider
             .docker
+            .expect_download_image()
+            .with(eq("itzg/minecraft-server"), eq("latest"))
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        container_provider
+            .docker
             .expect_create_container()
             .withf(|name, container_config| {
                 name == "name"
-                    && container_config.image == Some("itzg/minecraft-server".to_owned())
+                    && container_config.image == Some("itzg/minecraft-server:latest".to_owned())
                     && container_config.env
                         == Some(vec![
                             String::from("EULA=true"),
