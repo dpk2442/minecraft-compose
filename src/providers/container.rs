@@ -1,7 +1,7 @@
 use bollard::container::Config as ContainerConfig;
 use bollard::models::{
-    ContainerStateStatusEnum, HostConfig, PortBinding, PortMap, RestartPolicy,
-    RestartPolicyNameEnum,
+    ContainerStateStatusEnum, Health, HealthStatusEnum, HostConfig, PortBinding, PortMap,
+    RestartPolicy, RestartPolicyNameEnum,
 };
 use bollard::service;
 use std::path::PathBuf;
@@ -17,6 +17,13 @@ pub enum ContainerState {
     Unknown,
     NotFound,
     Stopped,
+    Running(GameState),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum GameState {
+    Unknown,
+    Starting,
     Running,
 }
 
@@ -120,8 +127,24 @@ impl<T: backends::docker::DockerBackend> ContainerProvider for ContainerProvider
                     | Some(ContainerStateStatusEnum::EXITED)
                     | Some(ContainerStateStatusEnum::DEAD)
                     | Some(ContainerStateStatusEnum::PAUSED) => Ok(ContainerState::Stopped),
-                    Some(ContainerStateStatusEnum::RUNNING)
-                    | Some(ContainerStateStatusEnum::RESTARTING) => Ok(ContainerState::Running),
+                    Some(ContainerStateStatusEnum::RUNNING) => match state.health {
+                        Some(Health {
+                            status: Some(HealthStatusEnum::NONE | HealthStatusEnum::UNHEALTHY),
+                            ..
+                        }) => Ok(ContainerState::Running(GameState::Unknown)),
+                        Some(Health {
+                            status: Some(HealthStatusEnum::STARTING),
+                            ..
+                        }) => Ok(ContainerState::Running(GameState::Starting)),
+                        Some(Health {
+                            status: Some(HealthStatusEnum::HEALTHY),
+                            ..
+                        }) => Ok(ContainerState::Running(GameState::Running)),
+                        _ => Ok(ContainerState::Running(GameState::Unknown)),
+                    },
+                    Some(ContainerStateStatusEnum::RESTARTING) => {
+                        Ok(ContainerState::Running(GameState::Unknown))
+                    }
                     Some(ContainerStateStatusEnum::REMOVING) => Ok(ContainerState::NotFound),
                     None => Ok(ContainerState::Unknown),
                 },
@@ -342,7 +365,7 @@ mod tests {
         }
 
         macro_rules! get_container_status_tests {
-            ($($name:ident: $docker_status:expr, $result_state:expr;)*) => {
+            ($($name:ident: $docker_status:expr, $docker_health_status:expr, $result_state:expr;)*) => {
             $(
                 #[test]
                 fn $name() {
@@ -357,14 +380,21 @@ mod tests {
                         .returning(|_| Ok(backends::docker::InspectResult::Ok(ContainerInspectResponse {
                             state: Some(DockerContainerState {
                                 status: $docker_status,
+                                health: match $docker_health_status {
+                                    Some(_) => Some(Health {
+                                        status: $docker_health_status,
+                                        ..std::default::Default::default()
+                                    }),
+                                    None => None,
+                                },
                                 ..std::default::Default::default()
                             }),
                             ..std::default::Default::default()
                         })));
 
                     assert_eq!(
-                        Ok($result_state),
-                        container_provider.get_container_status(&config)
+                        Result::<ContainerState, ()>::Ok($result_state),
+                        container_provider.get_container_status(&config),
                     );
                 }
             )*
@@ -372,15 +402,18 @@ mod tests {
         }
 
         get_container_status_tests! {
-            status_none: None, ContainerState::Unknown;
-            status_created: Some(ContainerStateStatusEnum::CREATED), ContainerState::Stopped;
-            status_empty: Some(ContainerStateStatusEnum::EMPTY), ContainerState::Stopped;
-            status_exited: Some(ContainerStateStatusEnum::EXITED), ContainerState::Stopped;
-            status_dead: Some(ContainerStateStatusEnum::DEAD), ContainerState::Stopped;
-            status_paused: Some(ContainerStateStatusEnum::PAUSED), ContainerState::Stopped;
-            status_running: Some(ContainerStateStatusEnum::RUNNING), ContainerState::Running;
-            status_restarting: Some(ContainerStateStatusEnum::RESTARTING), ContainerState::Running;
-            status_removing: Some(ContainerStateStatusEnum::REMOVING), ContainerState::NotFound;
+            status_none: None, None::<HealthStatusEnum>, ContainerState::Unknown;
+            status_created: Some(ContainerStateStatusEnum::CREATED), None::<HealthStatusEnum>, ContainerState::Stopped;
+            status_empty: Some(ContainerStateStatusEnum::EMPTY), None::<HealthStatusEnum>, ContainerState::Stopped;
+            status_exited: Some(ContainerStateStatusEnum::EXITED), None::<HealthStatusEnum>, ContainerState::Stopped;
+            status_dead: Some(ContainerStateStatusEnum::DEAD), None::<HealthStatusEnum>, ContainerState::Stopped;
+            status_paused: Some(ContainerStateStatusEnum::PAUSED), None::<HealthStatusEnum>, ContainerState::Stopped;
+            status_running_none: Some(ContainerStateStatusEnum::RUNNING), Some(HealthStatusEnum::NONE), ContainerState::Running(GameState::Unknown);
+            status_running_starting: Some(ContainerStateStatusEnum::RUNNING), Some(HealthStatusEnum::STARTING), ContainerState::Running(GameState::Starting);
+            status_running_healthy: Some(ContainerStateStatusEnum::RUNNING), Some(HealthStatusEnum::HEALTHY), ContainerState::Running(GameState::Running);
+            status_running_unhealthy: Some(ContainerStateStatusEnum::RUNNING), Some(HealthStatusEnum::UNHEALTHY), ContainerState::Running(GameState::Unknown);
+            status_restarting: Some(ContainerStateStatusEnum::RESTARTING), None::<HealthStatusEnum>, ContainerState::Running(GameState::Unknown);
+            status_removing: Some(ContainerStateStatusEnum::REMOVING), None::<HealthStatusEnum>, ContainerState::NotFound;
         }
     }
 

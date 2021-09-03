@@ -108,8 +108,19 @@ impl<
                     providers::container::ContainerState::NotFound => {
                         log::info!("The container does not exist");
                     }
-                    providers::container::ContainerState::Running => {
+                    providers::container::ContainerState::Running(game_state) => {
                         log::info!("The container is currently running");
+                        match game_state {
+                            providers::container::GameState::Unknown => {
+                                log::info!("The state of the server is unknown")
+                            }
+                            providers::container::GameState::Starting => {
+                                log::info!("The server is starting")
+                            }
+                            providers::container::GameState::Running => {
+                                log::info!("The server is running")
+                            }
+                        };
                     }
                     providers::container::ContainerState::Stopped => {
                         log::info!("The container is currently stopped");
