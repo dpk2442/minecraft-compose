@@ -1,5 +1,8 @@
 use crate::config;
-use crate::providers;
+use crate::providers::{
+    self,
+    container::{ContainerState, GameState},
+};
 
 pub struct SubCommands<
     T1: providers::container::ContainerProvider,
@@ -44,6 +47,11 @@ impl<
     }
 
     pub fn create(&self, config: &config::Config) -> Result<(), ()> {
+        if self.container_provider.get_container_status(&config)? != ContainerState::NotFound {
+            log::warn!("Container already exists");
+            return Ok(());
+        }
+
         let data_path = self.file_provider.get_data_path().or_else(|_| {
             log::error!("Failed to get the data path");
             Err(())
@@ -59,6 +67,11 @@ impl<
     }
 
     pub fn destroy(&self, config: &config::Config) -> Result<(), ()> {
+        if self.container_provider.get_container_status(&config)? != ContainerState::Stopped {
+            log::error!("Container is not stopped");
+            return Err(());
+        }
+
         if let Err(()) = self.container_provider.delete_container(&config) {
             log::error!("Failed to delete the container");
             return Err(());
@@ -69,6 +82,11 @@ impl<
     }
 
     pub fn start(&self, config: &config::Config) -> Result<(), ()> {
+        if self.container_provider.get_container_status(&config)? != ContainerState::Stopped {
+            log::error!("Container is not stopped");
+            return Err(());
+        }
+
         if let Err(()) = self.file_provider.create_data_folder() {
             log::error!("Failed to create data folder");
             return Err(());
@@ -89,6 +107,14 @@ impl<
     }
 
     pub fn stop(&self, config: &config::Config) -> Result<(), ()> {
+        if !matches!(
+            self.container_provider.get_container_status(&config)?,
+            ContainerState::Running(_)
+        ) {
+            log::warn!("Container is not running");
+            return Ok(());
+        }
+
         if let Err(()) = self.container_provider.stop_container(&config) {
             log::error!("Failed to start the container");
             return Err(());
@@ -136,6 +162,13 @@ impl<
     }
 
     pub fn console(&self, config: &config::Config) -> Result<(), ()> {
+        if self.container_provider.get_container_status(&config)?
+            != ContainerState::Running(GameState::Running)
+        {
+            log::error!("Game server is not running");
+            return Err(());
+        }
+
         let (rcon_host, rcon_port) = self
             .container_provider
             .get_container_rcon_address(&config)
@@ -191,6 +224,12 @@ mod tests {
         let path_clone = path.clone();
 
         subcommands
+            .container_provider
+            .expect_get_container_status()
+            .with(eq(config.clone()))
+            .returning(|_| Ok(ContainerState::NotFound));
+
+        subcommands
             .file_provider
             .expect_get_data_path()
             .times(1)
@@ -212,6 +251,12 @@ mod tests {
 
         subcommands
             .container_provider
+            .expect_get_container_status()
+            .with(eq(config.clone()))
+            .returning(|_| Ok(ContainerState::Stopped));
+
+        subcommands
+            .container_provider
             .expect_delete_container()
             .with(eq(config.clone()))
             .times(1)
@@ -224,6 +269,12 @@ mod tests {
     fn test_start() {
         let mut subcommands = get_subcommands();
         let config = get_config();
+
+        subcommands
+            .container_provider
+            .expect_get_container_status()
+            .with(eq(config.clone()))
+            .returning(|_| Ok(ContainerState::Stopped));
 
         subcommands
             .file_provider
@@ -254,6 +305,12 @@ mod tests {
 
         subcommands
             .container_provider
+            .expect_get_container_status()
+            .with(eq(config.clone()))
+            .returning(|_| Ok(ContainerState::Running(GameState::Unknown)));
+
+        subcommands
+            .container_provider
             .expect_stop_container()
             .with(eq(config.clone()))
             .times(1)
@@ -266,6 +323,12 @@ mod tests {
     fn test_console() {
         let mut subcommands = get_subcommands();
         let config = get_config();
+
+        subcommands
+            .container_provider
+            .expect_get_container_status()
+            .with(eq(config.clone()))
+            .returning(|_| Ok(ContainerState::Running(GameState::Running)));
 
         subcommands
             .container_provider
