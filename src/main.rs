@@ -21,6 +21,12 @@ async fn main() {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("debug")
+                .long("debug")
+                .help("Enables extremely verbose debug output")
+                .hidden(!cfg!(debug_assertions)),
+        )
+        .arg(
             Arg::with_name("quiet")
                 .short("q")
                 .long("quiet")
@@ -44,13 +50,14 @@ async fn main() {
         .setting(clap::AppSettings::SubcommandRequired)
         .get_matches();
 
+    let debug = matches.is_present("debug");
     let quiet = matches.is_present("quiet");
     let verbosity = if matches.is_present("verbose") {
         matches.occurrences_of("verbose")
     } else {
         0
     };
-    match logging::init_logging(quiet, verbosity) {
+    match logging::init_logging(debug, quiet, verbosity) {
         Err(err) => {
             eprintln!("Unable to initialize logging: {}", err);
             std::process::exit(1);
