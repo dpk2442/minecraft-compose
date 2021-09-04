@@ -17,7 +17,7 @@ async fn main() {
                 .short("f")
                 .long("file")
                 .value_name("FILE")
-                .help("Sets the file to use, defaults to ./mcc.toml")
+                .help("Sets the file to use, defaults to ./minecraft-compose.toml")
                 .takes_value(true),
         )
         .arg(
