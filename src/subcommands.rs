@@ -52,6 +52,11 @@ impl<
             return Ok(());
         }
 
+        if let Err(()) = self.file_provider.create_data_folder() {
+            log::error!("Failed to create data folder");
+            return Err(());
+        }
+
         let data_path = self.file_provider.get_data_path().or_else(|_| {
             log::error!("Failed to get the data path");
             Err(())
@@ -228,6 +233,12 @@ mod tests {
             .expect_get_container_status()
             .with(eq(config.clone()))
             .returning(|_| Ok(ContainerState::NotFound));
+
+        subcommands
+            .file_provider
+            .expect_create_data_folder()
+            .times(1)
+            .return_const(Ok(()));
 
         subcommands
             .file_provider
