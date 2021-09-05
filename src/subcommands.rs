@@ -7,18 +7,18 @@ use crate::providers::{
 pub struct SubCommands<
     T1: providers::container::ContainerProvider,
     T2: providers::file::FileProvider,
-    T3: providers::rcon::RconProvider,
+    T3: providers::game::GameProvider,
 > {
     container_provider: T1,
     file_provider: T2,
-    rcon_provider: T3,
+    game_provider: T3,
 }
 
 pub fn new_from_defaults() -> Result<
     SubCommands<
         providers::container::ContainerProviderImpl<providers::backends::docker::DockerBackendImpl>,
         providers::file::FileProviderImpl<providers::backends::filesystem::FilesystemBackendImpl>,
-        providers::rcon::RconProviderImpl<
+        providers::game::GameProviderImpl<
             providers::backends::rcon::RconBackendFactoryImpl,
             providers::backends::input::InputBackendFactoryImpl,
         >,
@@ -28,7 +28,7 @@ pub fn new_from_defaults() -> Result<
     Ok(SubCommands {
         container_provider: providers::container::new_from_defaults()?,
         file_provider: providers::file::new_from_defaults(),
-        rcon_provider: providers::rcon::new_from_defaults(),
+        game_provider: providers::game::new_from_defaults(),
     })
 }
 
@@ -36,7 +36,7 @@ impl<
         'a,
         T1: providers::container::ContainerProvider,
         T2: providers::file::FileProvider,
-        T3: providers::rcon::RconProvider,
+        T3: providers::game::GameProvider,
     > SubCommands<T1, T2, T3>
 {
     pub fn up(&self, config: &config::Config) -> Result<(), ()> {
@@ -185,7 +185,7 @@ impl<
                 return Err(());
             })?;
 
-        self.rcon_provider
+        self.game_provider
             .run_interactive_rcon_session(&config, &rcon_host, &rcon_port)
             .or_else(|_| {
                 log::error!("Failed to establish interactive rcon session");
@@ -203,13 +203,13 @@ mod tests {
     use super::*;
     use crate::providers::container::MockContainerProvider;
     use crate::providers::file::MockFileProvider;
-    use crate::providers::rcon::MockRconProvider;
+    use crate::providers::game::MockGameProvider;
 
-    fn get_subcommands() -> SubCommands<MockContainerProvider, MockFileProvider, MockRconProvider> {
+    fn get_subcommands() -> SubCommands<MockContainerProvider, MockFileProvider, MockGameProvider> {
         SubCommands {
             container_provider: MockContainerProvider::new(),
             file_provider: MockFileProvider::new(),
-            rcon_provider: MockRconProvider::new(),
+            game_provider: MockGameProvider::new(),
         }
     }
 
@@ -352,7 +352,7 @@ mod tests {
             .returning(|_| Ok(("host".to_owned(), "port".to_owned())));
 
         subcommands
-            .rcon_provider
+            .game_provider
             .expect_run_interactive_rcon_session()
             .with(eq(config.clone()), eq("host"), eq("port"))
             .times(1)

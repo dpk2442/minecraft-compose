@@ -5,7 +5,7 @@ use crate::providers::backends::input::{
 use crate::providers::backends::rcon::{RconBackend, RconBackendFactory, RconBackendFactoryImpl};
 
 #[cfg_attr(test, mockall::automock)]
-pub trait RconProvider {
+pub trait GameProvider {
     fn run_interactive_rcon_session(
         &self,
         config: &Config,
@@ -14,7 +14,7 @@ pub trait RconProvider {
     ) -> Result<(), ()>;
 }
 
-pub struct RconProviderImpl<
+pub struct GameProviderImpl<
     RconBackendFactoryType: RconBackendFactory,
     InputBackendFactoryType: InputBackendFactory,
 > {
@@ -23,7 +23,7 @@ pub struct RconProviderImpl<
 }
 
 impl<RconBackendFactoryType: RconBackendFactory, InputBackendFactoryType: InputBackendFactory>
-    RconProvider for RconProviderImpl<RconBackendFactoryType, InputBackendFactoryType>
+    GameProvider for GameProviderImpl<RconBackendFactoryType, InputBackendFactoryType>
 {
     fn run_interactive_rcon_session(
         &self,
@@ -53,8 +53,8 @@ impl<RconBackendFactoryType: RconBackendFactory, InputBackendFactoryType: InputB
     }
 }
 
-pub fn new_from_defaults() -> RconProviderImpl<RconBackendFactoryImpl, InputBackendFactoryImpl> {
-    RconProviderImpl {
+pub fn new_from_defaults() -> GameProviderImpl<RconBackendFactoryImpl, InputBackendFactoryImpl> {
+    GameProviderImpl {
         rcon_backend_factory: RconBackendFactoryImpl {},
         input_backend_factory: InputBackendFactoryImpl {},
     }
@@ -86,7 +86,7 @@ mod tests {
             input_responses: Vec<Result<InputResponse, ()>>,
             rcon_inputs: Vec<String>,
             rcon_responses: Vec<Result<String, ()>>,
-        ) -> RconProviderImpl<MockRconBackendFactory, MockInputBackendFactory> {
+        ) -> GameProviderImpl<MockRconBackendFactory, MockInputBackendFactory> {
             let mut rcon_sequence = Sequence::new();
             let mut mock_rcon_backend = MockRconBackend::new();
             for rcon_idx in 0..rcon_inputs.len() {
@@ -125,7 +125,7 @@ mod tests {
                 .times(1)
                 .return_once(move || mock_input_backend);
 
-            RconProviderImpl {
+            GameProviderImpl {
                 rcon_backend_factory: mock_rcon_factory,
                 input_backend_factory: mock_input_factory,
             }
@@ -142,32 +142,32 @@ mod tests {
                 .times(1)
                 .return_once(move |_, _| Err(()));
 
-            let rcon_provider = RconProviderImpl {
+            let game_provider = GameProviderImpl {
                 rcon_backend_factory: mock_rcon_factory,
                 input_backend_factory: MockInputBackendFactory::new(),
             };
 
             assert_eq!(
                 Err(()),
-                rcon_provider.run_interactive_rcon_session(&config, "host", "port")
+                game_provider.run_interactive_rcon_session(&config, "host", "port")
             );
         }
 
         #[test]
         fn error_reading_input() {
             let config = get_config();
-            let rcon_provider = setup(vec![Err(())], vec![], vec![]);
+            let game_provider = setup(vec![Err(())], vec![], vec![]);
 
             assert_eq!(
                 Err(()),
-                rcon_provider.run_interactive_rcon_session(&config, "host", "port")
+                game_provider.run_interactive_rcon_session(&config, "host", "port")
             );
         }
 
         #[test]
         fn error_running_cmd() {
             let config = get_config();
-            let rcon_provider = setup(
+            let game_provider = setup(
                 vec![Ok(InputResponse::Input("test".to_owned()))],
                 vec!["test".to_owned()],
                 vec![Err(())],
@@ -175,14 +175,14 @@ mod tests {
 
             assert_eq!(
                 Err(()),
-                rcon_provider.run_interactive_rcon_session(&config, "host", "port")
+                game_provider.run_interactive_rcon_session(&config, "host", "port")
             );
         }
 
         #[test]
         fn success() {
             let config = get_config();
-            let rcon_provider = setup(
+            let game_provider = setup(
                 vec![
                     Ok(InputResponse::Input("test1".to_owned())),
                     Ok(InputResponse::Input("test2".to_owned())),
@@ -194,7 +194,7 @@ mod tests {
 
             assert_eq!(
                 Ok(()),
-                rcon_provider.run_interactive_rcon_session(&config, "host", "port")
+                game_provider.run_interactive_rcon_session(&config, "host", "port")
             );
         }
     }
