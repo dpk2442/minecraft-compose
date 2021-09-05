@@ -18,7 +18,10 @@ pub fn new_from_defaults() -> Result<
     SubCommands<
         providers::container::ContainerProviderImpl<providers::backends::docker::DockerBackendImpl>,
         providers::file::FileProviderImpl<providers::backends::filesystem::FilesystemBackendImpl>,
-        providers::rcon::RconProviderImpl,
+        providers::rcon::RconProviderImpl<
+            providers::backends::rcon::RconBackendFactoryImpl,
+            providers::backends::input::InputBackendFactoryImpl,
+        >,
     >,
     (),
 > {
