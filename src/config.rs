@@ -17,7 +17,7 @@ config_defaults! {
     default_port -> i32: 25565;
 }
 
-#[derive(Clone, Deserialize, Debug, PartialEq)]
+#[derive(Clone, Deserialize, Debug, Default, PartialEq)]
 pub struct Config {
     pub name: String,
 
@@ -30,9 +30,11 @@ pub struct Config {
     pub server: Server,
 }
 
-#[derive(Clone, Deserialize, Debug, PartialEq)]
+#[derive(Clone, Deserialize, Debug, Default, PartialEq)]
 pub struct Server {
     pub version: String,
+
+    pub memory: Option<String>,
 
     #[serde(flatten)]
     pub server_type: ServerType,
@@ -43,6 +45,12 @@ pub struct Server {
 pub enum ServerType {
     #[serde(alias = "vanilla")]
     Vanilla,
+}
+
+impl Default for ServerType {
+    fn default() -> ServerType {
+        ServerType::Vanilla
+    }
 }
 
 pub fn load_config(file_path: &str) -> Result<Config, Box<dyn error::Error>> {

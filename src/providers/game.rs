@@ -74,6 +74,7 @@ mod tests {
             server: config::Server {
                 version: "1.17.1".to_owned(),
                 server_type: config::ServerType::Vanilla,
+                ..std::default::Default::default()
             },
         }
     }

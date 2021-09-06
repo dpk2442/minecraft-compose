@@ -72,6 +72,7 @@ port = "The port to bind to on the host machine"
 # Additional fields may be needed based on the server type.
 type = "The type of the server"
 version = "The version of minecraft the server should run"
+memory = "How much memory the JVM should use. Defaults to 1G"
 ```
 
 #### Vanilla

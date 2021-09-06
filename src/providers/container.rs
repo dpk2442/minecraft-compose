@@ -78,6 +78,9 @@ impl<T: backends::docker::DockerBackend> ContainerProvider for ContainerProvider
             String::from("EULA=true"),
             format!("VERSION={}", config.server.version),
         ];
+        if let Some(memory) = &config.server.memory {
+            env.append(&mut vec![format!("MEMORY={}", memory)]);
+        }
         match config.server.server_type {
             config::ServerType::Vanilla => {
                 env.append(&mut vec![String::from("TYPE=VANILLA")]);
@@ -201,6 +204,7 @@ mod tests {
             server: config::Server {
                 version: "1.17.1".to_owned(),
                 server_type: config::ServerType::Vanilla,
+                ..std::default::Default::default()
             },
         }
     }
@@ -265,6 +269,43 @@ mod tests {
                                 }
                         }
                     }
+            })
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        assert_eq!(
+            Ok(()),
+            container_provider.create_container(&config, &data_path)
+        );
+    }
+
+    #[test]
+    fn test_create_container_with_memory() {
+        let mut container_provider = get_container_provider();
+        let mut config = get_config();
+        config.server.memory = Some(String::from("5G"));
+        let data_path = PathBuf::from("path");
+
+        container_provider
+            .docker
+            .expect_download_image()
+            .with(eq("itzg/minecraft-server"), eq("latest"))
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        container_provider
+            .docker
+            .expect_create_container()
+            .withf(|name, container_config| {
+                name == "name"
+                    && container_config.image == Some("itzg/minecraft-server:latest".to_owned())
+                    && container_config.env
+                        == Some(vec![
+                            String::from("EULA=true"),
+                            String::from("VERSION=1.17.1"),
+                            String::from("MEMORY=5G"),
+                            String::from("TYPE=VANILLA"),
+                        ])
             })
             .times(1)
             .returning(|_, _| Ok(()));
