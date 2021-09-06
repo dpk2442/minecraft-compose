@@ -31,15 +31,18 @@ pub struct Config {
 }
 
 #[derive(Clone, Deserialize, Debug, PartialEq)]
-#[serde(tag = "type")]
-pub enum Server {
-    #[serde(alias = "vanilla")]
-    Vanilla(VanillaServer),
+pub struct Server {
+    pub version: String,
+
+    #[serde(flatten)]
+    pub server_type: ServerType,
 }
 
 #[derive(Clone, Deserialize, Debug, PartialEq)]
-pub struct VanillaServer {
-    pub version: String,
+#[serde(tag = "type")]
+pub enum ServerType {
+    #[serde(alias = "vanilla")]
+    Vanilla,
 }
 
 pub fn load_config(file_path: &str) -> Result<Config, Box<dyn error::Error>> {
