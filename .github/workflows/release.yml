@@ -1,0 +1,51 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        build: [linux, linux-arm]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - build: linux-arm
+            os: ubuntu-latest
+            target: arm-unknown-linux-gnueabihf
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          target: ${{ matrix.target }}
+
+      - name: Use Cross
+        shell: bash
+        run: cargo install cross
+
+      - name: Build release binary
+        run: cross build --verbose --release --target ${{ matrix.target }}
+
+      - name: Rename release binary
+        run: cp target/${{ matrix.target }}/release/minecraft-compose ./minecraft-compose_${{ matrix.target }}
+
+      - name: Publish binary as artifact
+        uses: 'actions/upload-artifact@v2'
+          with:
+              name: releases
+              path: ./minecraft-compose_${{ matrix.target }}
