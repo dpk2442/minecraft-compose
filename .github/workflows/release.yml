@@ -56,17 +56,17 @@ release-rolling:
   if: github.ref == 'refs/heads/master'
 
   steps:
-  - name: Download the release binaries
+    - name: Download the release binaries
       uses: actions/download-artifact@v2
       with:
         name: releases
         path: ./releases
 
-  - name: Publish a rolling latest release
-    uses: marvinpinto/action-automatic-releases@latest
-    with:
-      repo_token: ${{ secrets.GITHUB_TOKEN }}
-      automatic_release_tag: latest
-      prerelease: true
-      title: Build from latest commit
-      files: ./releases/*
+    - name: Publish a rolling latest release
+      uses: marvinpinto/action-automatic-releases@latest
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        automatic_release_tag: latest
+        prerelease: true
+        title: Build from latest commit
+        files: ./releases/*
