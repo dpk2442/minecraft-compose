@@ -46,6 +46,6 @@ jobs:
 
       - name: Publish binary as artifact
         uses: actions/upload-artifact@v2
-          with:
-              name: releases
-              path: ./minecraft-compose_${{ matrix.target }}
+        with:
+          name: releases
+          path: ./minecraft-compose_${{ matrix.target }}
