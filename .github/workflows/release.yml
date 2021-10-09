@@ -1,4 +1,4 @@
-name: Build and Test
+name: Release
 
 on:
   push:
@@ -45,7 +45,7 @@ jobs:
         run: cp target/${{ matrix.target }}/release/minecraft-compose ./minecraft-compose_${{ matrix.target }}
 
       - name: Publish binary as artifact
-        uses: 'actions/upload-artifact@v2'
+        uses: actions/upload-artifact@v2
           with:
               name: releases
               path: ./minecraft-compose_${{ matrix.target }}
