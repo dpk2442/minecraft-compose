@@ -55,6 +55,7 @@ release-rolling:
   needs: build
   if: github.ref == 'refs/heads/master'
 
+  steps:
   - name: Download the release binaries
       uses: actions/download-artifact@v2
       with:
