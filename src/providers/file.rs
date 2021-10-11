@@ -1,3 +1,4 @@
+use crate::config::Config;
 use std::collections::{HashMap, HashSet};
 use std::path;
 
@@ -7,7 +8,7 @@ use crate::providers::backends::filesystem::{self, FilesystemBackend, Filesystem
 pub trait FileProvider {
     fn get_data_path(&self) -> Result<path::PathBuf, ()>;
     fn create_data_folder(&self) -> Result<(), ()>;
-    fn create_and_populate_server_properties(&self) -> Result<(), ()>;
+    fn create_and_populate_server_properties(&self, config: &Config) -> Result<(), ()>;
 }
 
 pub struct FileProviderImpl<T: FilesystemBackend> {
@@ -51,7 +52,7 @@ impl<T: FilesystemBackend> FileProvider for FileProviderImpl<T> {
         Ok(())
     }
 
-    fn create_and_populate_server_properties(&self) -> Result<(), ()> {
+    fn create_and_populate_server_properties(&self, config: &Config) -> Result<(), ()> {
         let server_properties = match self
             .filesystem_backend
             .file_exists(&self.server_properties_path)
@@ -62,27 +63,44 @@ impl<T: FilesystemBackend> FileProvider for FileProviderImpl<T> {
             false => "".to_owned(),
         };
 
-        let mut keys = self
-            .default_properties
+        let mut properties_to_remove = HashSet::new();
+        let mut properties_to_set = self.default_properties.clone();
+
+        properties_to_set.insert("level-name".to_owned(), config.world.name.clone());
+        properties_to_set.insert("gamemode".to_owned(), config.world.gamemode.clone());
+        properties_to_set.insert("difficulty".to_owned(), config.world.difficulty.clone());
+        properties_to_set.insert(
+            "allow-flight".to_owned(),
+            config.world.allow_flight.to_string(),
+        );
+        match &config.world.seed {
+            Some(seed) => drop(properties_to_set.insert("level-seed".to_owned(), seed.clone())),
+            None => drop(properties_to_remove.insert("level-seed".to_owned())),
+        };
+
+        let mut keys = properties_to_set
             .keys()
             .clone()
             .collect::<HashSet<&String>>();
         let mut new_properties = server_properties
             .lines()
-            .map(|line| match line.find("=") {
-                None => line.to_owned(),
+            .filter_map(|line| match line.find("=") {
+                None => Some(line.to_owned()),
                 Some(i) => {
                     let line_key = String::from(&line[0..i]);
                     match keys.remove(&line_key) {
-                        false => line.to_owned(),
-                        true => format!("{}={}", line_key, self.default_properties[&line_key]),
+                        false => match properties_to_remove.contains(&line_key) {
+                            true => None,
+                            false => Some(line.to_owned()),
+                        },
+                        true => Some(format!("{}={}", line_key, properties_to_set[&line_key])),
                     }
                 }
             })
             .collect::<Vec<String>>();
 
         for key in keys.iter() {
-            new_properties.push(format!("{}={}", key, self.default_properties[*key]));
+            new_properties.push(format!("{}={}", key, properties_to_set[*key]));
         }
 
         self.filesystem_backend
@@ -101,10 +119,32 @@ mod tests {
     use mockall::predicate::eq;
 
     use super::*;
+    use crate::config;
     use crate::providers::backends::filesystem::MockFilesystemBackend;
 
     fn get_file_provider() -> FileProviderImpl<MockFilesystemBackend> {
         FileProviderImpl::new(MockFilesystemBackend::new())
+    }
+
+    fn get_config() -> Config {
+        Config {
+            name: "name".to_owned(),
+            host: "0.0.0.0".to_owned(),
+            port: 25565,
+            server: config::Server {
+                version: "1.17.1".to_owned(),
+                server_type: config::ServerType::Vanilla,
+                ..std::default::Default::default()
+            },
+            world: config::World {
+                name: "world".to_owned(),
+                gamemode: "survival".to_owned(),
+                difficulty: "easy".to_owned(),
+                allow_flight: false,
+                ..std::default::Default::default()
+            },
+            ..std::default::Default::default()
+        }
     }
 
     fn compare_server_properties(expected: &str, actual: &str) {
@@ -167,6 +207,7 @@ mod tests {
         #[test]
         fn file_not_exist() {
             let mut file_provider = get_file_provider();
+            let config = get_config();
 
             file_provider
                 .filesystem_backend
@@ -188,6 +229,10 @@ mod tests {
                                 "rcon.port=25575\n",
                                 "rcon.password=minecraft\n",
                                 "broadcast-rcon-to-ops=true\n",
+                                "level-name=world\n",
+                                "gamemode=survival\n",
+                                "difficulty=easy\n",
+                                "allow-flight=false\n",
                             ),
                             actual_props,
                         );
@@ -199,13 +244,14 @@ mod tests {
 
             assert_eq!(
                 Ok(()),
-                file_provider.create_and_populate_server_properties()
+                file_provider.create_and_populate_server_properties(&config)
             );
         }
 
         #[test]
         fn empty_file_exists() {
             let mut file_provider = get_file_provider();
+            let config = get_config();
 
             file_provider
                 .filesystem_backend
@@ -233,6 +279,10 @@ mod tests {
                                 "rcon.port=25575\n",
                                 "rcon.password=minecraft\n",
                                 "broadcast-rcon-to-ops=true\n",
+                                "level-name=world\n",
+                                "gamemode=survival\n",
+                                "difficulty=easy\n",
+                                "allow-flight=false\n",
                             ),
                             actual_props,
                         );
@@ -244,13 +294,14 @@ mod tests {
 
             assert_eq!(
                 Ok(()),
-                file_provider.create_and_populate_server_properties()
+                file_provider.create_and_populate_server_properties(&config)
             );
         }
 
         #[test]
         fn non_empty_file_exists() {
             let mut file_provider = get_file_provider();
+            let config = get_config();
 
             file_provider
                 .filesystem_backend
@@ -284,6 +335,10 @@ mod tests {
                                 "rcon.port=25575\n",
                                 "rcon.password=minecraft\n",
                                 "broadcast-rcon-to-ops=true\n",
+                                "level-name=world\n",
+                                "gamemode=survival\n",
+                                "difficulty=easy\n",
+                                "allow-flight=false\n",
                             ),
                             actual_props,
                         );
@@ -295,7 +350,57 @@ mod tests {
 
             assert_eq!(
                 Ok(()),
-                file_provider.create_and_populate_server_properties()
+                file_provider.create_and_populate_server_properties(&config)
+            );
+        }
+
+        #[test]
+        fn test_removes_seed() {
+            let mut file_provider = get_file_provider();
+            let config = get_config();
+
+            file_provider
+                .filesystem_backend
+                .expect_file_exists()
+                .with(eq(path::Path::new("data").join("server.properties")))
+                .times(1)
+                .returning(|_| true);
+
+            file_provider
+                .filesystem_backend
+                .expect_read_file()
+                .times(1)
+                .returning(|_| Ok(String::from("level-seed=test-seed\n")));
+
+            file_provider
+                .filesystem_backend
+                .expect_write_file()
+                .with(
+                    eq(path::Path::new("data").join("server.properties")),
+                    mockall::predicate::function(|actual_props: &str| {
+                        compare_server_properties(
+                            concat!(
+                                "server-port=25565\n",
+                                "enable-rcon=true\n",
+                                "rcon.port=25575\n",
+                                "rcon.password=minecraft\n",
+                                "broadcast-rcon-to-ops=true\n",
+                                "level-name=world\n",
+                                "gamemode=survival\n",
+                                "difficulty=easy\n",
+                                "allow-flight=false\n",
+                            ),
+                            actual_props,
+                        );
+                        true
+                    }),
+                )
+                .times(1)
+                .returning(|_, _| Ok(()));
+
+            assert_eq!(
+                Ok(()),
+                file_provider.create_and_populate_server_properties(&config)
             );
         }
     }

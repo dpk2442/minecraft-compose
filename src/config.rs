@@ -15,6 +15,17 @@ macro_rules! config_defaults {
 config_defaults! {
     default_host -> String: "0.0.0.0".to_string();
     default_port -> i32: 25565;
+    default_world -> World: World {
+        name: "world".to_string(),
+        gamemode: "survival".to_string(),
+        difficulty: "easy".to_string(),
+        allow_flight: false,
+        ..std::default::Default::default()
+    };
+    default_world_name -> String: "world".to_string();
+    default_world_gamemode -> String: "survival".to_string();
+    default_world_difficulty -> String: "easy".to_string();
+    default_world_allow_flight -> bool: false;
 }
 
 #[derive(Clone, Deserialize, Debug, Default, PartialEq)]
@@ -28,6 +39,9 @@ pub struct Config {
     pub port: i32,
 
     pub server: Server,
+
+    #[serde(default = "default_world")]
+    pub world: World,
 }
 
 #[derive(Clone, Deserialize, Debug, Default, PartialEq)]
@@ -51,6 +65,23 @@ impl Default for ServerType {
     fn default() -> ServerType {
         ServerType::Vanilla
     }
+}
+
+#[derive(Clone, Deserialize, Debug, Default, PartialEq)]
+pub struct World {
+    #[serde(default = "default_world_name")]
+    pub name: String,
+
+    pub seed: Option<String>,
+
+    #[serde(default = "default_world_gamemode")]
+    pub gamemode: String,
+
+    #[serde(default = "default_world_difficulty")]
+    pub difficulty: String,
+
+    #[serde(default = "default_world_allow_flight")]
+    pub allow_flight: bool,
 }
 
 pub fn load_config(file_path: &str) -> Result<Config, Box<dyn error::Error>> {

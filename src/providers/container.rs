@@ -206,6 +206,7 @@ mod tests {
                 server_type: config::ServerType::Vanilla,
                 ..std::default::Default::default()
             },
+            ..std::default::Default::default()
         }
     }
 

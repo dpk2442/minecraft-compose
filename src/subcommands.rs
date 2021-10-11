@@ -100,7 +100,10 @@ impl<
             return Err(());
         }
 
-        if let Err(()) = self.file_provider.create_and_populate_server_properties() {
+        if let Err(()) = self
+            .file_provider
+            .create_and_populate_server_properties(&config)
+        {
             log::error!("Failed to create server.properties");
             return Err(());
         }
@@ -223,6 +226,7 @@ mod tests {
                 server_type: config::ServerType::Vanilla,
                 ..std::default::Default::default()
             },
+            ..std::default::Default::default()
         }
     }
 
@@ -301,8 +305,9 @@ mod tests {
         subcommands
             .file_provider
             .expect_create_and_populate_server_properties()
+            .with(eq(config.clone()))
             .times(1)
-            .returning(|| Ok(()));
+            .returning(|_| Ok(()));
 
         subcommands
             .container_provider
