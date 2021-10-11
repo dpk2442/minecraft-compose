@@ -58,6 +58,13 @@ port = 25565
 [server]
 type = "vanilla"
 version = "1.17.1"
+
+[world]
+name = "world"
+seed = "seed"
+gamemode = "survival"
+difficulty = "easy"
+allow_flight = false
 ```
 
 ### Definition
@@ -73,6 +80,15 @@ port = "The port to bind to on the host machine"
 type = "The type of the server"
 version = "The version of minecraft the server should run"
 memory = "How much memory the JVM should use. Defaults to 1G"
+
+[world]
+# This section defines the details of the world
+# All fields are optional
+name = "The name of the world folder"
+seed = "The world seed to use"
+gamemode = "The default gamemode for new players"
+difficulty = "The difficulty level of the world"
+allow_flight = "Whether or not players should be allowed to fly"
 ```
 
 #### Vanilla

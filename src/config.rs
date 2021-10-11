@@ -15,17 +15,17 @@ macro_rules! config_defaults {
 config_defaults! {
     default_host -> String: "0.0.0.0".to_string();
     default_port -> i32: 25565;
-    default_world -> World: World {
-        name: "world".to_string(),
-        gamemode: "survival".to_string(),
-        difficulty: "easy".to_string(),
-        allow_flight: false,
-        ..std::default::Default::default()
-    };
     default_world_name -> String: "world".to_string();
     default_world_gamemode -> String: "survival".to_string();
     default_world_difficulty -> String: "easy".to_string();
     default_world_allow_flight -> bool: false;
+    default_world -> World: World {
+        name: default_world_name(),
+        seed: None,
+        gamemode: default_world_gamemode(),
+        difficulty: default_world_difficulty(),
+        allow_flight: default_world_allow_flight(),
+    };
 }
 
 #[derive(Clone, Deserialize, Debug, Default, PartialEq)]
