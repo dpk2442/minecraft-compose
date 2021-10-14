@@ -197,6 +197,10 @@ impl<
 
         Ok(())
     }
+
+    pub fn sync_datapacks(&self, config: &config::Config) -> Result<(), ()> {
+        self.file_provider.sync_datapacks(&config)
+    }
 }
 
 #[cfg(test)]

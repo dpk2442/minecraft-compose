@@ -47,6 +47,12 @@ async fn main() {
         .subcommand(SubCommand::with_name("stop").about("Stops the server container"))
         .subcommand(SubCommand::with_name("status").about("Displays the container status"))
         .subcommand(SubCommand::with_name("console").about("Connects a console to the server"))
+        .subcommand(
+            SubCommand::with_name("datapacks")
+                .about("Manage datapacks for the server")
+                .subcommand(SubCommand::with_name("sync").about("Syncs datapacks to the server"))
+                .setting(clap::AppSettings::SubcommandRequired),
+        )
         .setting(clap::AppSettings::SubcommandRequired)
         .get_matches();
 
@@ -112,6 +118,10 @@ async fn main() {
         ("stop", Some(_)) => subcommands.stop(&config),
         ("status", Some(_)) => subcommands.status(&config),
         ("console", Some(_)) => subcommands.console(&config),
+        ("datapacks", Some(datapacks_matches)) => match datapacks_matches.subcommand() {
+            ("sync", Some(_)) => subcommands.sync_datapacks(&config),
+            _ => Ok(()),
+        },
         _ => Ok(()),
     };
 }

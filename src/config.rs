@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::error;
 use toml;
 
@@ -15,6 +16,7 @@ macro_rules! config_defaults {
 config_defaults! {
     default_host -> String: "0.0.0.0".to_string();
     default_port -> i32: 25565;
+
     default_world_name -> String: "world".to_string();
     default_world_gamemode -> String: "survival".to_string();
     default_world_difficulty -> String: "easy".to_string();
@@ -26,6 +28,7 @@ config_defaults! {
         difficulty: default_world_difficulty(),
         allow_flight: default_world_allow_flight(),
     };
+
 }
 
 #[derive(Clone, Deserialize, Debug, Default, PartialEq)]
@@ -42,6 +45,8 @@ pub struct Config {
 
     #[serde(default = "default_world")]
     pub world: World,
+
+    pub datapacks: Option<HashMap<String, String>>,
 }
 
 #[derive(Clone, Deserialize, Debug, Default, PartialEq)]
