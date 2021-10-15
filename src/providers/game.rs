@@ -12,6 +12,12 @@ pub trait GameProvider {
         host: &str,
         port: &str,
     ) -> Result<(), ()>;
+    fn run_rcon_commands(
+        &self,
+        host: &str,
+        port: &str,
+        commands: Vec<String>,
+    ) -> Result<Vec<String>, ()>;
 }
 
 pub struct GameProviderImpl<
@@ -51,6 +57,21 @@ impl<RconBackendFactoryType: RconBackendFactory, InputBackendFactoryType: InputB
 
         Ok(())
     }
+
+    fn run_rcon_commands(
+        &self,
+        host: &str,
+        port: &str,
+        commands: Vec<String>,
+    ) -> Result<Vec<String>, ()> {
+        let mut responses = vec![];
+        let mut rcon_backend = self.rcon_backend_factory.create(host, port)?;
+        for command in commands {
+            responses.push(rcon_backend.cmd(&command)?);
+        }
+
+        Ok(responses)
+    }
 }
 
 pub fn new_from_defaults() -> GameProviderImpl<RconBackendFactoryImpl, InputBackendFactoryImpl> {
@@ -64,6 +85,8 @@ pub fn new_from_defaults() -> GameProviderImpl<RconBackendFactoryImpl, InputBack
 mod tests {
     use super::*;
     use crate::config;
+    use crate::providers::backends::input::{MockInputBackend, MockInputBackendFactory};
+    use crate::providers::backends::rcon::{MockRconBackend, MockRconBackendFactory};
     use mockall::{predicate::eq, Sequence};
 
     fn get_config() -> Config {
@@ -82,8 +105,6 @@ mod tests {
 
     mod test_interactive_rcon_session {
         use super::*;
-        use crate::providers::backends::input::{MockInputBackend, MockInputBackendFactory};
-        use crate::providers::backends::rcon::{MockRconBackend, MockRconBackendFactory};
 
         fn setup(
             input_responses: Vec<Result<InputResponse, ()>>,
@@ -198,6 +219,87 @@ mod tests {
             assert_eq!(
                 Ok(()),
                 game_provider.run_interactive_rcon_session(&config, "host", "port")
+            );
+        }
+    }
+
+    mod test_rcon_commands {
+        use super::*;
+
+        fn setup(
+            rcon_inputs: Vec<String>,
+            rcon_responses: Vec<Result<String, ()>>,
+        ) -> GameProviderImpl<MockRconBackendFactory, MockInputBackendFactory> {
+            let mut rcon_sequence = Sequence::new();
+            let mut mock_rcon_backend = MockRconBackend::new();
+            for rcon_idx in 0..rcon_inputs.len() {
+                let expected_input = rcon_inputs[rcon_idx].to_owned();
+                let response = rcon_responses[rcon_idx].clone();
+                mock_rcon_backend
+                    .expect_cmd()
+                    .times(1)
+                    .withf(move |input| input == expected_input)
+                    .return_once(move |_| response)
+                    .in_sequence(&mut rcon_sequence);
+            }
+
+            let mut mock_rcon_factory = MockRconBackendFactory::new();
+            mock_rcon_factory
+                .expect_create()
+                .with(eq("host"), eq("port"))
+                .times(1)
+                .return_once(move |_, _| Ok(mock_rcon_backend));
+
+            GameProviderImpl {
+                rcon_backend_factory: mock_rcon_factory,
+                input_backend_factory: MockInputBackendFactory::new(),
+            }
+        }
+
+        #[test]
+        fn error_on_connect() {
+            let mut mock_rcon_factory = MockRconBackendFactory::new();
+            mock_rcon_factory
+                .expect_create()
+                .with(eq("host"), eq("port"))
+                .times(1)
+                .return_once(move |_, _| Err(()));
+
+            let game_provider = GameProviderImpl {
+                rcon_backend_factory: mock_rcon_factory,
+                input_backend_factory: MockInputBackendFactory::new(),
+            };
+
+            assert_eq!(
+                Err(()),
+                game_provider.run_rcon_commands("host", "port", vec![])
+            );
+        }
+
+        #[test]
+        fn error_running_command() {
+            let game_provider = setup(vec!["test".to_owned()], vec![Err(())]);
+
+            assert_eq!(
+                Err(()),
+                game_provider.run_rcon_commands("host", "port", vec!["test".to_owned()])
+            );
+        }
+
+        #[test]
+        fn success() {
+            let game_provider = setup(
+                vec!["cmd1".to_owned(), "cmd2".to_owned()],
+                vec![Ok("resp1".to_owned()), Ok("resp2".to_owned())],
+            );
+
+            assert_eq!(
+                Ok(vec!["resp1".to_owned(), "resp2".to_owned()]),
+                game_provider.run_rcon_commands(
+                    "host",
+                    "port",
+                    vec!["cmd1".to_owned(), "cmd2".to_owned()]
+                )
             );
         }
     }
