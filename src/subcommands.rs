@@ -199,7 +199,41 @@ impl<
     }
 
     pub fn sync_datapacks(&self, config: &config::Config) -> Result<(), ()> {
-        self.file_provider.sync_datapacks(&config)
+        if let Err(()) = self.file_provider.sync_datapacks(&config) {
+            log::error!("Failed to sync datapacks");
+            return Err(());
+        }
+
+        if self.container_provider.get_container_status(&config)?
+            != ContainerState::Running(GameState::Running)
+        {
+            return Ok(());
+        }
+
+        log::info!("The game is running, attempting to reload datapacks");
+
+        let (rcon_host, rcon_port) = self
+            .container_provider
+            .get_container_rcon_address(&config)
+            .or_else(|_| {
+                log::error!("Failed to get rcon address");
+                return Err(());
+            })?;
+
+        self.game_provider
+            .run_rcon_commands(
+                &rcon_host,
+                &rcon_port,
+                vec!["reload".to_owned(), "datapack list".to_owned()],
+            )
+            .or_else(|_| {
+                log::error!("Failed to run rcon commands");
+                return Err(());
+            })?
+            .iter()
+            .for_each(|response| println!("{:?}", response));
+
+        Ok(())
     }
 }
 
@@ -370,5 +404,71 @@ mod tests {
             .returning(|_, _, _| Ok(()));
 
         assert_eq!(Ok(()), subcommands.console(&config));
+    }
+
+    mod test_sync_datapacks {
+        use super::*;
+
+        #[test]
+        fn game_not_running() {
+            let config = get_config();
+            let mut subcommands = get_subcommands();
+
+            subcommands
+                .file_provider
+                .expect_sync_datapacks()
+                .with(eq(config.clone()))
+                .times(1)
+                .returning(|_| Ok(()));
+
+            subcommands
+                .container_provider
+                .expect_get_container_status()
+                .with(eq(config.clone()))
+                .times(1)
+                .returning(|_| Ok(ContainerState::Stopped));
+
+            assert_eq!(Ok(()), subcommands.sync_datapacks(&config));
+        }
+
+        #[test]
+        fn game_running() {
+            let config = get_config();
+            let mut subcommands = get_subcommands();
+
+            subcommands
+                .file_provider
+                .expect_sync_datapacks()
+                .with(eq(config.clone()))
+                .times(1)
+                .returning(|_| Ok(()));
+
+            subcommands
+                .container_provider
+                .expect_get_container_status()
+                .with(eq(config.clone()))
+                .times(1)
+                .returning(|_| Ok(ContainerState::Running(GameState::Running)));
+
+            subcommands
+                .container_provider
+                .expect_get_container_rcon_address()
+                .with(eq(config.clone()))
+                .times(1)
+                .returning(|_| Ok(("host".to_owned(), "port".to_owned())));
+
+            subcommands
+                .game_provider
+                .expect_run_rcon_commands()
+                .with(
+                    eq("host"),
+                    eq("port"),
+                    eq(vec!["reload".to_owned(), "datapack list".to_owned()]),
+                )
+                .times(1)
+                .returning(|_, _, _| Ok(vec!["response".to_owned()]));
+
+            assert_eq!(Ok(()), subcommands.sync_datapacks(&config));
+        }
     }
 }
