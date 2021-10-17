@@ -1,69 +1,16 @@
-use clap::{App, Arg, SubCommand};
+use structopt::StructOpt;
 
+mod args;
 mod config;
 mod logging;
 mod providers;
 mod subcommands;
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-
 #[tokio::main]
 async fn main() {
-    let matches = App::new("MinecraftCompose")
-        .about("Manage minecraft servers")
-        .version(VERSION)
-        .arg(
-            Arg::with_name("file")
-                .short("f")
-                .long("file")
-                .value_name("FILE")
-                .help("Sets the file to use, defaults to ./minecraft-compose.toml")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("debug")
-                .long("debug")
-                .help("Enables extremely verbose debug output")
-                .hidden(!cfg!(debug_assertions)),
-        )
-        .arg(
-            Arg::with_name("quiet")
-                .short("q")
-                .long("quiet")
-                .help("Silences all output except errors"),
-        )
-        .arg(
-            Arg::with_name("verbose")
-                .short("v")
-                .long("verbose")
-                .multiple(true)
-                .help("Prints additional output"),
-        )
-        .subcommand(SubCommand::with_name("up").about("Creates and starts the server container"))
-        .subcommand(SubCommand::with_name("down").about("Stops and destroys the server container"))
-        .subcommand(SubCommand::with_name("create").about("Creates the server container"))
-        .subcommand(SubCommand::with_name("destroy").about("Destroys the server container"))
-        .subcommand(SubCommand::with_name("start").about("Starts the server container"))
-        .subcommand(SubCommand::with_name("stop").about("Stops the server container"))
-        .subcommand(SubCommand::with_name("status").about("Displays the container status"))
-        .subcommand(SubCommand::with_name("console").about("Connects a console to the server"))
-        .subcommand(
-            SubCommand::with_name("datapacks")
-                .about("Manage datapacks for the server")
-                .subcommand(SubCommand::with_name("sync").about("Syncs datapacks to the server"))
-                .setting(clap::AppSettings::SubcommandRequired),
-        )
-        .setting(clap::AppSettings::SubcommandRequired)
-        .get_matches();
+    let args = args::Args::from_args();
 
-    let debug = matches.is_present("debug");
-    let quiet = matches.is_present("quiet");
-    let verbosity = if matches.is_present("verbose") {
-        matches.occurrences_of("verbose")
-    } else {
-        0
-    };
-    match logging::init_logging(debug, quiet, verbosity) {
+    match logging::init_logging(args.debug, args.quiet, args.verbosity) {
         Err(err) => {
             eprintln!("Unable to initialize logging: {}", err);
             std::process::exit(1);
@@ -71,10 +18,7 @@ async fn main() {
         _ => (),
     }
 
-    let file_path = matches
-        .value_of("file")
-        .unwrap_or("./minecraft-compose.toml");
-    let config = match config::load_config(file_path) {
+    let config = match config::load_config(&args.file) {
         Ok(config) => config,
         Err(err) => {
             log::error!("Unable to load config file: {}", err);
@@ -82,7 +26,7 @@ async fn main() {
         }
     };
 
-    if let Some(parent_dir) = std::path::Path::new(file_path).parent() {
+    if let Some(parent_dir) = std::path::Path::new(&args.file).parent() {
         log::trace!(
             "Changing to config file directory: {}",
             parent_dir.display()
@@ -109,19 +53,17 @@ async fn main() {
         }
     };
 
-    let _ = match matches.subcommand() {
-        ("up", Some(_)) => subcommands.up(&config),
-        ("down", Some(_)) => subcommands.down(&config),
-        ("create", Some(_)) => subcommands.create(&config),
-        ("destroy", Some(_)) => subcommands.destroy(&config),
-        ("start", Some(_)) => subcommands.start(&config),
-        ("stop", Some(_)) => subcommands.stop(&config),
-        ("status", Some(_)) => subcommands.status(&config),
-        ("console", Some(_)) => subcommands.console(&config),
-        ("datapacks", Some(datapacks_matches)) => match datapacks_matches.subcommand() {
-            ("sync", Some(_)) => subcommands.sync_datapacks(&config),
-            _ => Ok(()),
-        },
-        _ => Ok(()),
+    let _ = match args.subcommand {
+        args::SubCommand::Up => subcommands.up(&config),
+        args::SubCommand::Down => subcommands.down(&config),
+        args::SubCommand::Create => subcommands.create(&config),
+        args::SubCommand::Destroy => subcommands.destroy(&config),
+        args::SubCommand::Start => subcommands.start(&config),
+        args::SubCommand::Stop => subcommands.stop(&config),
+        args::SubCommand::Status => subcommands.status(&config),
+        args::SubCommand::Console => subcommands.console(&config),
+        args::SubCommand::Datapacks(args::DatapackCommand::Sync) => {
+            subcommands.sync_datapacks(&config)
+        }
     };
 }
