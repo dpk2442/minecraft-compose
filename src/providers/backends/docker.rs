@@ -1,4 +1,4 @@
-use bollard::container::{Config, CreateContainerOptions};
+use bollard::container::{Config, CreateContainerOptions, LogsOptions};
 use bollard::errors;
 use bollard::models::ContainerInspectResponse;
 
@@ -16,6 +16,7 @@ pub trait DockerBackend {
     fn start_container(&self, name: &str) -> Result<(), ()>;
     fn stop_container(&self, name: &str) -> Result<(), ()>;
     fn inspect_container(&self, name: &str) -> Result<InspectResult, ()>;
+    fn get_container_logs(&self, name: &str) -> Box<dyn Iterator<Item = Result<String, ()>>>;
 }
 
 pub struct DockerBackendImpl {
@@ -113,5 +114,29 @@ impl DockerBackend for DockerBackendImpl {
                 Err(())
             }
         }
+    }
+
+    fn get_container_logs(&self, name: &str) -> Box<dyn Iterator<Item = Result<String, ()>>> {
+        log::trace!("Getting logs for container {}", name);
+
+        Box::new(
+            futures::executor::block_on_stream(self.docker.logs(
+                &name,
+                Some(LogsOptions {
+                    follow: true,
+                    stdout: true,
+                    stderr: true,
+                    tail: "10",
+                    ..std::default::Default::default()
+                }),
+            ))
+            .map(|line_result| match line_result {
+                Ok(output) => Ok(String::from_utf8_lossy(&output.into_bytes()).to_string()),
+                Err(err) => {
+                    log::trace!("Error reading logs: {}", err);
+                    Err(())
+                }
+            }),
+        )
     }
 }

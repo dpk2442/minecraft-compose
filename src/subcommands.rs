@@ -235,6 +235,10 @@ impl<
 
         Ok(())
     }
+
+    pub fn logs(&self, config: &config::Config) -> Result<(), ()> {
+        self.container_provider.display_container_logs(&config)
+    }
 }
 
 #[cfg(test)]
@@ -470,5 +474,20 @@ mod tests {
 
             assert_eq!(Ok(()), subcommands.sync_datapacks(&config));
         }
+    }
+
+    #[test]
+    fn test_logs() {
+        let mut subcommands = get_subcommands();
+        let config = get_config();
+
+        subcommands
+            .container_provider
+            .expect_display_container_logs()
+            .with(eq(config.clone()))
+            .times(1)
+            .returning(|_| Ok(()));
+
+        assert_eq!(Ok(()), subcommands.logs(&config));
     }
 }

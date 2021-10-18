@@ -61,6 +61,9 @@ pub enum SubCommand {
     #[structopt(about = "Connects a console to the server")]
     Console,
 
+    #[structopt(about = "Displays the server's logs")]
+    Logs,
+
     #[structopt(about = "Manage datapacks for the server")]
     Datapacks(DatapackCommand),
 }

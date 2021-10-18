@@ -35,6 +35,7 @@ pub trait ContainerProvider {
     fn stop_container(&self, config: &Config) -> Result<(), ()>;
     fn get_container_status(&self, config: &Config) -> Result<ContainerState, ()>;
     fn get_container_rcon_address(&self, config: &Config) -> Result<(String, String), ()>;
+    fn display_container_logs(&self, config: &Config) -> Result<(), ()>;
 }
 
 pub struct ContainerProviderImpl<T: backends::docker::DockerBackend> {
@@ -179,6 +180,14 @@ impl<T: backends::docker::DockerBackend> ContainerProvider for ContainerProvider
             },
             _ => Err(()),
         }
+    }
+
+    fn display_container_logs(&self, config: &Config) -> Result<(), ()> {
+        for log_entry in self.docker.get_container_logs(&config.name) {
+            print!("{}", log_entry?);
+        }
+
+        Ok(())
     }
 }
 
@@ -540,5 +549,28 @@ mod tests {
                 container_provider.get_container_rcon_address(&config)
             );
         }
+    }
+
+    #[test]
+    fn test_display_container_logs() {
+        let config = get_config();
+        let mut container_provider = get_container_provider();
+
+        container_provider
+            .docker
+            .expect_get_container_logs()
+            .with(eq("name"))
+            .times(1)
+            .returning(|_| {
+                Box::new(
+                    vec![
+                        Result::<String, ()>::Ok("test1".to_owned()),
+                        Result::<String, ()>::Ok("test2".to_owned()),
+                    ]
+                    .into_iter(),
+                )
+            });
+
+        assert_eq!(Ok(()), container_provider.display_container_logs(&config));
     }
 }

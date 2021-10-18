@@ -62,6 +62,7 @@ async fn main() {
         args::SubCommand::Stop => subcommands.stop(&config),
         args::SubCommand::Status => subcommands.status(&config),
         args::SubCommand::Console => subcommands.console(&config),
+        args::SubCommand::Logs => subcommands.logs(&config),
         args::SubCommand::Datapacks(args::DatapackCommand::Sync) => {
             subcommands.sync_datapacks(&config)
         }
