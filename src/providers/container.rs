@@ -88,12 +88,34 @@ impl<T: backends::docker::DockerBackend> ContainerProvider for ContainerProvider
             }
         }
 
-        self.docker.download_image(IMAGE_NAME, IMAGE_TAG)?;
+        let full_image_name = format!("{}:{}", IMAGE_NAME, IMAGE_TAG);
+
+        if let Err(()) = self.docker.download_image(IMAGE_NAME, IMAGE_TAG) {
+            match self.docker.inspect_image(IMAGE_NAME) {
+                Err(()) => {
+                    log::error!("The image {} could not be found", full_image_name);
+                    Err(())
+                }
+                Ok(image) => {
+                    if !match image.repo_tags {
+                        None => false,
+                        Some(tags) => tags.contains(&full_image_name),
+                    } {
+                        log::error!("The image {} could not be found", full_image_name);
+                        return Err(());
+                    }
+
+                    Ok(())
+                }
+            }?;
+
+            log::warn!("Unable to download latest image, continuing with local image");
+        }
 
         self.docker.create_container(
             &config.name,
             ContainerConfig {
-                image: Some(format!("{}:{}", IMAGE_NAME, IMAGE_TAG)),
+                image: Some(full_image_name),
                 env: Some(env),
                 host_config: Some(HostConfig {
                     binds: Some(vec![format!("{}:/data", data_path)]),
@@ -316,6 +338,47 @@ mod tests {
                             String::from("MEMORY=5G"),
                             String::from("TYPE=VANILLA"),
                         ])
+            })
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        assert_eq!(
+            Ok(()),
+            container_provider.create_container(&config, &data_path)
+        );
+    }
+
+    #[test]
+    fn test_create_container_cannot_download() {
+        let mut container_provider = get_container_provider();
+        let config = get_config();
+        let data_path = PathBuf::from("path");
+
+        container_provider
+            .docker
+            .expect_download_image()
+            .with(eq("itzg/minecraft-server"), eq("latest"))
+            .times(1)
+            .returning(|_, _| Err(()));
+
+        container_provider
+            .docker
+            .expect_inspect_image()
+            .with(eq("itzg/minecraft-server"))
+            .times(1)
+            .returning(|_| {
+                Ok(bollard::service::Image {
+                    repo_tags: Some(vec!["itzg/minecraft-server:latest".to_owned()]),
+                    ..std::default::Default::default()
+                })
+            });
+
+        container_provider
+            .docker
+            .expect_create_container()
+            .withf(|name, container_config| {
+                name == "name"
+                    && container_config.image == Some("itzg/minecraft-server:latest".to_owned())
             })
             .times(1)
             .returning(|_, _| Ok(()));

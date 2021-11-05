@@ -1,6 +1,6 @@
 use bollard::container::{Config, CreateContainerOptions, LogsOptions};
 use bollard::errors;
-use bollard::models::ContainerInspectResponse;
+use bollard::models::{ContainerInspectResponse, Image};
 
 #[derive(Debug)]
 pub enum InspectResult {
@@ -11,6 +11,7 @@ pub enum InspectResult {
 #[cfg_attr(test, mockall::automock)]
 pub trait DockerBackend {
     fn download_image(&self, image: &str, tag: &str) -> Result<(), ()>;
+    fn inspect_image(&self, image: &str) -> Result<Image, ()>;
     fn create_container(&self, name: &str, container_config: Config<String>) -> Result<(), ()>;
     fn delete_container(&self, name: &str) -> Result<(), ()>;
     fn start_container(&self, name: &str) -> Result<(), ()>;
@@ -55,6 +56,13 @@ impl DockerBackend for DockerBackendImpl {
         }
 
         Ok(())
+    }
+
+    fn inspect_image(&self, image: &str) -> Result<Image, ()> {
+        futures::executor::block_on(self.docker.inspect_image(&image)).or_else(|err| {
+            log::trace!("Unable to inspect image: {}", err);
+            Err(())
+        })
     }
 
     fn create_container(&self, name: &str, container_config: Config<String>) -> Result<(), ()> {
