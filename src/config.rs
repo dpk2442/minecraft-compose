@@ -19,13 +19,11 @@ config_defaults! {
 
     default_world_name -> String: "world".to_string();
     default_world_gamemode -> String: "survival".to_string();
-    default_world_difficulty -> String: "easy".to_string();
     default_world_allow_flight -> bool: false;
     default_world -> World: World {
         name: default_world_name(),
         seed: None,
         gamemode: default_world_gamemode(),
-        difficulty: default_world_difficulty(),
         allow_flight: default_world_allow_flight(),
     };
 
@@ -81,9 +79,6 @@ pub struct World {
 
     #[serde(default = "default_world_gamemode")]
     pub gamemode: String,
-
-    #[serde(default = "default_world_difficulty")]
-    pub difficulty: String,
 
     #[serde(default = "default_world_allow_flight")]
     pub allow_flight: bool,

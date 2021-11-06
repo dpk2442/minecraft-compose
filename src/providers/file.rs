@@ -69,7 +69,6 @@ impl<T: FilesystemBackend> FileProvider for FileProviderImpl<T> {
 
         properties_to_set.insert("level-name".to_owned(), config.world.name.clone());
         properties_to_set.insert("gamemode".to_owned(), config.world.gamemode.clone());
-        properties_to_set.insert("difficulty".to_owned(), config.world.difficulty.clone());
         properties_to_set.insert(
             "allow-flight".to_owned(),
             config.world.allow_flight.to_string(),
@@ -205,7 +204,6 @@ mod tests {
             world: config::World {
                 name: "world".to_owned(),
                 gamemode: "survival".to_owned(),
-                difficulty: "easy".to_owned(),
                 allow_flight: false,
                 ..std::default::Default::default()
             },
@@ -297,7 +295,6 @@ mod tests {
                                 "broadcast-rcon-to-ops=true\n",
                                 "level-name=world\n",
                                 "gamemode=survival\n",
-                                "difficulty=easy\n",
                                 "allow-flight=false\n",
                             ),
                             actual_props,
@@ -347,7 +344,6 @@ mod tests {
                                 "broadcast-rcon-to-ops=true\n",
                                 "level-name=world\n",
                                 "gamemode=survival\n",
-                                "difficulty=easy\n",
                                 "allow-flight=false\n",
                             ),
                             actual_props,
@@ -403,7 +399,6 @@ mod tests {
                                 "broadcast-rcon-to-ops=true\n",
                                 "level-name=world\n",
                                 "gamemode=survival\n",
-                                "difficulty=easy\n",
                                 "allow-flight=false\n",
                             ),
                             actual_props,
@@ -453,7 +448,6 @@ mod tests {
                                 "broadcast-rcon-to-ops=true\n",
                                 "level-name=world\n",
                                 "gamemode=survival\n",
-                                "difficulty=easy\n",
                                 "allow-flight=false\n",
                             ),
                             actual_props,
